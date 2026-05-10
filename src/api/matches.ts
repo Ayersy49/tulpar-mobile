@@ -59,3 +59,70 @@ export function listMatches(query: MatchListQuery = {}) {
     auth: false,
   });
 }
+
+export type SlotPlayer =
+  | { userId: string; username: string | null; joinedAt: string }
+  | { occupied: true };
+
+export type MatchSlot = {
+  id: string;
+  position: string;
+  isReserve: boolean;
+  sortOrder: number;
+  player: SlotPlayer | null;
+};
+
+export type MatchDetail = {
+  id: string;
+  type: string;
+  state: string;
+  format: number;
+  difficulty: string;
+  isLocked: boolean;
+  isInviteOnly: boolean;
+  pricePerPerson: number | null;
+  scheduledAt: string | null;
+  durationMin: number;
+  pitchName: string | null;
+  pitchLat: number | null;
+  pitchLng: number | null;
+  pitchAddress: string | null;
+  city: string | null;
+  district: string | null;
+  createdBy: string;
+  authorityId?: string;
+  capacity: {
+    playersPerTeam: number;
+    reservesPerTeam: number;
+    totalSlots: number;
+    filled: number;
+    label: string;
+  };
+  teamA: MatchSlot[];
+  teamB: MatchSlot[];
+};
+
+export function getMatch(id: string) {
+  // JwtOptionalGuard on the backend — auth is forwarded if available so that
+  // creator/authority/participant viewers see the unredacted detail and
+  // invite-only matches resolve. Anonymous viewers still get public detail
+  // (or 404 for invite-only).
+  return apiFetch<MatchDetail>(`/matches/${id}`);
+}
+
+export type JoinMatchPayload = {
+  slotId: string;
+};
+
+export function joinMatch(matchId: string, slotId: string) {
+  return apiFetch<unknown>(`/matches/${matchId}/join`, {
+    method: 'POST',
+    body: { slotId } satisfies JoinMatchPayload,
+  });
+}
+
+export function leaveMatch(matchId: string) {
+  return apiFetch<unknown>(`/matches/${matchId}/leave`, {
+    method: 'POST',
+  });
+}

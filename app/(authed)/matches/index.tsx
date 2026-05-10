@@ -9,13 +9,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter, type Href } from 'expo-router';
 import {
   listMatches,
   type MatchListQuery,
   type MatchListResponse,
   type MatchSummary,
-} from '../../src/api/matches';
-import { tr } from '../../src/i18n/tr';
+} from '../../../src/api/matches';
+import { tr } from '../../../src/i18n/tr';
 
 const FORMAT_OPTIONS = [5, 6, 7, 8, 11] as const;
 
@@ -114,9 +115,17 @@ function DateRow({ label, value, onChange }: DateRowProps) {
   );
 }
 
-function MatchCard({ match }: { match: MatchSummary }) {
+function MatchCard({
+  match,
+  onPress,
+}: {
+  match: MatchSummary;
+  onPress: () => void;
+}) {
   return (
-    <View className="border border-gray-200 rounded-xl p-4 gap-2 bg-white mb-3">
+    <Pressable
+      onPress={onPress}
+      className="border border-gray-200 rounded-xl p-4 gap-2 bg-white mb-3 active:opacity-80">
       <View className="flex-row items-center justify-between">
         <Text className="text-lg font-semibold">
           {tr.matches.formatLabel(match.format)} · {match.difficulty}
@@ -139,14 +148,13 @@ function MatchCard({ match }: { match: MatchSummary }) {
           </Text>
         ) : null}
       </View>
-      <Text className="text-xs text-gray-500">
-        {match.createdBy}
-      </Text>
-    </View>
+      <Text className="text-xs text-gray-500">{match.createdBy}</Text>
+    </Pressable>
   );
 }
 
 export default function MatchesScreen() {
+  const router = useRouter();
   const [city, setCity] = useState('');
   const [from, setFrom] = useState<DateInput>(EMPTY_DATE);
   const [to, setTo] = useState<DateInput>(EMPTY_DATE);
@@ -198,7 +206,16 @@ export default function MatchesScreen() {
       <FlatList
         data={data?.data ?? []}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <MatchCard match={item} />}
+        renderItem={({ item }) => (
+          <MatchCard
+            match={item}
+            onPress={() =>
+              // Cast: typedRoutes regenerates the [id] route type on the next
+              // `expo start`. Until then, the cold tsc run sees stale types.
+              router.push(`/matches/${item.id}` as Href)
+            }
+          />
+        )}
         contentContainerClassName="p-4"
         refreshing={isFetching && !isLoading}
         onRefresh={() => refetch()}

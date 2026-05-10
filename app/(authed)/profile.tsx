@@ -20,6 +20,7 @@ import {
 } from '../../src/api/me';
 import { ApiError } from '../../src/api/client';
 import { tr } from '../../src/i18n/tr';
+import { DateTimeField } from '../../src/components/DateTimeField';
 
 const USERNAME_RE = /^[a-zA-Z0-9._]+$/;
 
@@ -29,9 +30,7 @@ type FormState = {
   lastName: string;
   city: string;
   district: string;
-  dobDay: string;
-  dobMonth: string;
-  dobYear: string;
+  dob: Date | null;
   height: string;
   weight: string;
   position1: string;
@@ -45,9 +44,7 @@ const EMPTY_FORM: FormState = {
   lastName: '',
   city: '',
   district: '',
-  dobDay: '',
-  dobMonth: '',
-  dobYear: '',
+  dob: null,
   height: '',
   weight: '',
   position1: '',
@@ -55,34 +52,22 @@ const EMPTY_FORM: FormState = {
   position3: '',
 };
 
-function splitIsoDate(iso: string | null): {
-  day: string;
-  month: string;
-  year: string;
-} {
-  if (!iso) return { day: '', month: '', year: '' };
+function isoToDate(iso: string | null): Date | null {
+  if (!iso) return null;
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return { day: '', month: '', year: '' };
-  return {
-    day: String(d.getUTCDate()).padStart(2, '0'),
-    month: String(d.getUTCMonth() + 1).padStart(2, '0'),
-    year: String(d.getUTCFullYear()),
-  };
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function meToForm(me: MeResponse): FormState {
   const p = me.profile;
   if (!p) return EMPTY_FORM;
-  const dob = splitIsoDate(p.dateOfBirth);
   return {
     username: p.username ?? '',
     firstName: p.firstName ?? '',
     lastName: p.lastName ?? '',
     city: p.city ?? '',
     district: p.district ?? '',
-    dobDay: dob.day,
-    dobMonth: dob.month,
-    dobYear: dob.year,
+    dob: isoToDate(p.dateOfBirth),
     height: p.height != null ? String(p.height) : '',
     weight: p.weight != null ? String(p.weight) : '',
     position1: p.position1 ?? '',
@@ -95,41 +80,13 @@ function isValidPosition(v: string): v is Position {
   return (POSITIONS as readonly string[]).includes(v);
 }
 
-function buildDob(
-  day: string,
-  month: string,
-  year: string,
-): { iso: string | null; error: string | null; supplied: boolean } {
-  const d = day.trim();
-  const m = month.trim();
-  const y = year.trim();
-  const allEmpty = !d && !m && !y;
-  if (allEmpty) return { iso: null, error: null, supplied: false };
-  const dn = parseInt(d, 10);
-  const mn = parseInt(m, 10);
-  const yn = parseInt(y, 10);
-  if (
-    !Number.isInteger(dn) ||
-    !Number.isInteger(mn) ||
-    !Number.isInteger(yn) ||
-    dn < 1 ||
-    dn > 31 ||
-    mn < 1 ||
-    mn > 12 ||
-    yn < 1900 ||
-    yn > 2100
-  ) {
-    return { iso: null, error: tr.profile.validation.dateInvalid, supplied: true };
-  }
-  const candidate = new Date(Date.UTC(yn, mn - 1, dn));
-  if (
-    candidate.getUTCFullYear() !== yn ||
-    candidate.getUTCMonth() !== mn - 1 ||
-    candidate.getUTCDate() !== dn
-  ) {
-    return { iso: null, error: tr.profile.validation.dateInvalid, supplied: true };
-  }
-  return { iso: candidate.toISOString(), error: null, supplied: true };
+// Convert a local-clock Date (from picker) to a UTC ISO string anchored at
+// midnight. Profile DOB is a date-of-birth — time-of-day is meaningless, but
+// the backend stores ISO strings. UTC keeps the day stable across timezones.
+function dobToIso(d: Date): string {
+  return new Date(
+    Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()),
+  ).toISOString();
 }
 
 function buildPayload(
@@ -172,17 +129,9 @@ function buildPayload(
   }
 
   const dobChanged =
-    form.dobDay !== initial.dobDay ||
-    form.dobMonth !== initial.dobMonth ||
-    form.dobYear !== initial.dobYear;
-  if (dobChanged) {
-    const { iso, error, supplied } = buildDob(
-      form.dobDay,
-      form.dobMonth,
-      form.dobYear,
-    );
-    if (error) errors.dateOfBirth = error;
-    else if (supplied && iso) payload.dateOfBirth = iso;
+    (form.dob?.getTime() ?? null) !== (initial.dob?.getTime() ?? null);
+  if (dobChanged && form.dob) {
+    payload.dateOfBirth = dobToIso(form.dob);
   }
 
   const h = form.height.trim();
@@ -424,61 +373,15 @@ export default function ProfileScreen() {
           editable={editing}
         />
 
-        <View className="gap-1">
-          <Text className="text-sm font-semibold text-gray-700">
-            {tr.profile.fields.dateOfBirth}
-          </Text>
-          <View className="flex-row gap-2">
-            <TextInput
-              value={form.dobDay}
-              onChangeText={setField('dobDay')}
-              placeholder={tr.profile.fields.day}
-              keyboardType="numeric"
-              maxLength={2}
-              editable={editing}
-              className={`flex-1 border rounded-lg p-3 text-base ${
-                errors.dateOfBirth
-                  ? 'border-red-500 bg-red-50'
-                  : editing
-                    ? 'border-gray-300 bg-white'
-                    : 'border-gray-200 bg-gray-100 text-gray-700'
-              }`}
-            />
-            <TextInput
-              value={form.dobMonth}
-              onChangeText={setField('dobMonth')}
-              placeholder={tr.profile.fields.month}
-              keyboardType="numeric"
-              maxLength={2}
-              editable={editing}
-              className={`flex-1 border rounded-lg p-3 text-base ${
-                errors.dateOfBirth
-                  ? 'border-red-500 bg-red-50'
-                  : editing
-                    ? 'border-gray-300 bg-white'
-                    : 'border-gray-200 bg-gray-100 text-gray-700'
-              }`}
-            />
-            <TextInput
-              value={form.dobYear}
-              onChangeText={setField('dobYear')}
-              placeholder={tr.profile.fields.year}
-              keyboardType="numeric"
-              maxLength={4}
-              editable={editing}
-              className={`flex-[1.5] border rounded-lg p-3 text-base ${
-                errors.dateOfBirth
-                  ? 'border-red-500 bg-red-50'
-                  : editing
-                    ? 'border-gray-300 bg-white'
-                    : 'border-gray-200 bg-gray-100 text-gray-700'
-              }`}
-            />
-          </View>
-          {errors.dateOfBirth ? (
-            <Text className="text-xs text-red-700">{errors.dateOfBirth}</Text>
-          ) : null}
-        </View>
+        <DateTimeField
+          label={tr.profile.fields.dateOfBirth}
+          value={form.dob}
+          onChange={(v) => setForm((prev) => ({ ...prev, dob: v }))}
+          mode="date"
+          maximumDate={new Date()}
+          disabled={!editing}
+          errorMessage={errors.dateOfBirth}
+        />
 
         <View className="flex-row gap-3">
           <View className="flex-1">

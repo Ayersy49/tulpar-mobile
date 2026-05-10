@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import {
   listMatches,
   type MatchListQuery,
@@ -17,44 +18,9 @@ import {
   type MatchSummary,
 } from '../../../src/api/matches';
 import { tr } from '../../../src/i18n/tr';
+import { DateTimeField } from '../../../src/components/DateTimeField';
 
-const FORMAT_OPTIONS = [5, 6, 7, 8, 11] as const;
-
-type DateInput = { day: string; month: string; year: string };
-
-const EMPTY_DATE: DateInput = { day: '', month: '', year: '' };
-
-function dateInputToIso(d: DateInput): string | null {
-  const day = d.day.trim();
-  const month = d.month.trim();
-  const year = d.year.trim();
-  if (!day && !month && !year) return null;
-  const dn = parseInt(day, 10);
-  const mn = parseInt(month, 10);
-  const yn = parseInt(year, 10);
-  if (
-    !Number.isInteger(dn) ||
-    !Number.isInteger(mn) ||
-    !Number.isInteger(yn) ||
-    dn < 1 ||
-    dn > 31 ||
-    mn < 1 ||
-    mn > 12 ||
-    yn < 1900 ||
-    yn > 2100
-  ) {
-    return null;
-  }
-  const candidate = new Date(Date.UTC(yn, mn - 1, dn));
-  if (
-    candidate.getUTCFullYear() !== yn ||
-    candidate.getUTCMonth() !== mn - 1 ||
-    candidate.getUTCDate() !== dn
-  ) {
-    return null;
-  }
-  return candidate.toISOString();
-}
+const FORMAT_OPTIONS = [5, 6, 7, 8, 9, 10, 11] as const;
 
 function formatScheduledAt(iso: string | null): string {
   if (!iso) return tr.matches.timeFallback;
@@ -73,46 +39,6 @@ function formatLocation(m: MatchSummary): string {
     Boolean(p),
   );
   return parts.length ? parts.join(' · ') : tr.matches.locationFallback;
-}
-
-type DateRowProps = {
-  label: string;
-  value: DateInput;
-  onChange: (v: DateInput) => void;
-};
-
-function DateRow({ label, value, onChange }: DateRowProps) {
-  return (
-    <View className="gap-1">
-      <Text className="text-sm font-semibold text-gray-700">{label}</Text>
-      <View className="flex-row gap-2">
-        <TextInput
-          value={value.day}
-          onChangeText={(v) => onChange({ ...value, day: v })}
-          placeholder={tr.profile.fields.day}
-          keyboardType="numeric"
-          maxLength={2}
-          className="flex-1 border border-gray-300 rounded-lg p-3 text-base bg-white"
-        />
-        <TextInput
-          value={value.month}
-          onChangeText={(v) => onChange({ ...value, month: v })}
-          placeholder={tr.profile.fields.month}
-          keyboardType="numeric"
-          maxLength={2}
-          className="flex-1 border border-gray-300 rounded-lg p-3 text-base bg-white"
-        />
-        <TextInput
-          value={value.year}
-          onChangeText={(v) => onChange({ ...value, year: v })}
-          placeholder={tr.profile.fields.year}
-          keyboardType="numeric"
-          maxLength={4}
-          className="flex-[1.5] border border-gray-300 rounded-lg p-3 text-base bg-white"
-        />
-      </View>
-    </View>
-  );
 }
 
 function MatchCard({
@@ -156,8 +82,8 @@ function MatchCard({
 export default function MatchesScreen() {
   const router = useRouter();
   const [city, setCity] = useState('');
-  const [from, setFrom] = useState<DateInput>(EMPTY_DATE);
-  const [to, setTo] = useState<DateInput>(EMPTY_DATE);
+  const [from, setFrom] = useState<Date | null>(null);
+  const [to, setTo] = useState<Date | null>(null);
   const [format, setFormat] = useState<number | null>(null);
   const [page, setPage] = useState(1);
 
@@ -174,14 +100,12 @@ export default function MatchesScreen() {
     });
 
   const applyFilters = (nextPage = 1) => {
-    const fromIso = dateInputToIso(from);
-    const toIso = dateInputToIso(to);
     const next: MatchListQuery = {
       page: nextPage,
       limit: 20,
       city: city.trim() || undefined,
-      from: fromIso ?? undefined,
-      to: toIso ?? undefined,
+      from: from ? from.toISOString() : undefined,
+      to: to ? to.toISOString() : undefined,
       format: format ?? undefined,
     };
     setPage(nextPage);
@@ -190,8 +114,8 @@ export default function MatchesScreen() {
 
   const clearFilters = () => {
     setCity('');
-    setFrom(EMPTY_DATE);
-    setTo(EMPTY_DATE);
+    setFrom(null);
+    setTo(null);
     setFormat(null);
     setPage(1);
     setAppliedQuery({ page: 1, limit: 20 });
@@ -203,6 +127,7 @@ export default function MatchesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
+      <View className="flex-1">
       <FlatList
         data={data?.data ?? []}
         keyExtractor={(item) => item.id}
@@ -240,15 +165,17 @@ export default function MatchesScreen() {
                 />
               </View>
 
-              <DateRow
+              <DateTimeField
                 label={tr.matches.filters.from}
                 value={from}
                 onChange={setFrom}
+                mode="date"
               />
-              <DateRow
+              <DateTimeField
                 label={tr.matches.filters.to}
                 value={to}
                 onChange={setTo}
+                mode="date"
               />
 
               <View className="gap-1">
@@ -364,6 +291,22 @@ export default function MatchesScreen() {
           ) : null
         }
       />
+      <Pressable
+        onPress={() => router.push('/matches/create' as Href)}
+        className="absolute bottom-6 right-6 bg-blue-600 rounded-full px-5 py-3 flex-row items-center gap-2 active:opacity-80"
+        style={{
+          shadowColor: '#000',
+          shadowOpacity: 0.2,
+          shadowOffset: { width: 0, height: 2 },
+          shadowRadius: 4,
+          elevation: 4,
+        }}>
+        <Ionicons name="add" size={20} color="#fff" />
+        <Text className="text-white font-semibold">
+          {tr.matches.createCta}
+        </Text>
+      </Pressable>
+      </View>
     </SafeAreaView>
   );
 }

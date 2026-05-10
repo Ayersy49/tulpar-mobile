@@ -90,6 +90,7 @@ export type MatchDetail = {
   city: string | null;
   district: string | null;
   createdBy: string;
+  creatorId?: string;
   authorityId?: string;
   capacity: {
     playersPerTeam: number;
@@ -123,6 +124,47 @@ export function joinMatch(matchId: string, slotId: string) {
 
 export function leaveMatch(matchId: string) {
   return apiFetch<unknown>(`/matches/${matchId}/leave`, {
+    method: 'POST',
+  });
+}
+
+export type CreateMatchPayload = {
+  format: number;
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  isLocked?: boolean;
+  isInviteOnly?: boolean;
+  pricePerPerson?: number;
+  scheduledAt?: string;
+  durationMin?: number;
+  pitchName?: string;
+  pitchAddress?: string;
+  pitchLat?: number;
+  pitchLng?: number;
+  city?: string;
+  district?: string;
+};
+
+export type UpdateMatchPayload = Omit<
+  CreateMatchPayload,
+  'format' | 'isInviteOnly'
+>;
+
+export function createMatch(payload: CreateMatchPayload) {
+  return apiFetch<MatchDetail>('/matches', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function updateMatch(id: string, payload: UpdateMatchPayload) {
+  return apiFetch<MatchDetail>(`/matches/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
+
+export function cancelMatch(id: string) {
+  return apiFetch<{ message: string }>(`/matches/${id}/cancel`, {
     method: 'POST',
   });
 }

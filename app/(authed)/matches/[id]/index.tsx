@@ -9,10 +9,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { ApiError } from '../../../src/api/client';
+import { ApiError } from '../../../../src/api/client';
 import {
   getMatch,
   joinMatch,
@@ -20,10 +20,10 @@ import {
   type MatchDetail,
   type MatchSlot,
   type SlotPlayer,
-} from '../../../src/api/matches';
-import { getMe, type MeResponse } from '../../../src/api/me';
-import { subscribeToMatch } from '../../../src/lib/socket';
-import { tr } from '../../../src/i18n/tr';
+} from '../../../../src/api/matches';
+import { getMe, type MeResponse } from '../../../../src/api/me';
+import { subscribeToMatch } from '../../../../src/lib/socket';
+import { tr } from '../../../../src/i18n/tr';
 
 function formatScheduledAt(iso: string | null): string {
   if (!iso) return tr.matches.timeFallback;
@@ -355,6 +355,13 @@ export default function MatchDetailScreen() {
   // settles.
   const canJoin = !myActiveSlot && !blockReason && !joinMutation.isPending;
 
+  const isOrganizer =
+    !!myUserId &&
+    (match.creatorId === myUserId || match.authorityId === myUserId);
+  const canEdit =
+    isOrganizer &&
+    !['LIVE', 'RATING_WINDOW', 'CLOSED', 'CANCELLED'].includes(match.state);
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView
@@ -365,7 +372,21 @@ export default function MatchDetailScreen() {
             onRefresh={() => matchQuery.refetch()}
           />
         }>
-        <BackHeader onBack={() => router.back()} />
+        <View className="flex-row items-center justify-between">
+          <BackHeader onBack={() => router.back()} />
+          {canEdit ? (
+            <Pressable
+              onPress={() =>
+                router.push(`/matches/${matchId}/edit` as Href)
+              }
+              className="flex-row items-center gap-1 active:opacity-60">
+              <Ionicons name="create-outline" size={18} color="#2563eb" />
+              <Text className="text-blue-600 font-semibold">
+                {tr.common.edit}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">

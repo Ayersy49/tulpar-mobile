@@ -50,8 +50,15 @@ function isIdentified(
   return !!player && 'userId' in player;
 }
 
-function joinDisabledReason(state: string, isLocked: boolean): string | null {
-  if (isLocked) return tr.matchDetail.errors.lockedJoin;
+function joinDisabledReason(
+  state: string,
+  isLocked: boolean,
+  isOrganizer: boolean,
+): string | null {
+  // Organizers (creator + authority) bypass the locked-join guard — they run
+  // the match and the backend lets them join directly. UI must mirror that
+  // bypass so the empty slot is tappable.
+  if (isLocked && !isOrganizer) return tr.matchDetail.errors.lockedJoin;
   if (state === 'CANCELLED') return tr.matchDetail.errors.cancelled;
   if (state !== 'OPEN' && state !== 'DRAFT') {
     // LIVE / RATING_WINDOW / CLOSED — joining doesn't apply
@@ -349,18 +356,22 @@ export default function MatchDetailScreen() {
     );
   }
 
-  const blockReason = joinDisabledReason(match.state, match.isLocked);
-  // Disable every empty slot while a join is in flight — prevents the user
-  // from firing parallel mutations on different slots before the first
-  // settles.
-  const canJoin = !myActiveSlot && !blockReason && !joinMutation.isPending;
-
   const isOrganizer =
     !!myUserId &&
     (match.creatorId === myUserId || match.authorityId === myUserId);
   const canEdit =
     isOrganizer &&
     !['LIVE', 'RATING_WINDOW', 'CLOSED', 'CANCELLED'].includes(match.state);
+
+  const blockReason = joinDisabledReason(
+    match.state,
+    match.isLocked,
+    isOrganizer,
+  );
+  // Disable every empty slot while a join is in flight — prevents the user
+  // from firing parallel mutations on different slots before the first
+  // settles.
+  const canJoin = !myActiveSlot && !blockReason && !joinMutation.isPending;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -430,7 +441,9 @@ export default function MatchDetailScreen() {
         {match.isLocked && match.state !== 'CANCELLED' ? (
           <View className="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
             <Text className="text-sm text-yellow-900">
-              {tr.matchDetail.locked}
+              {isOrganizer
+                ? tr.matchDetail.lockedOrganizer
+                : tr.matchDetail.locked}
             </Text>
           </View>
         ) : null}

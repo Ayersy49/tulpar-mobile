@@ -193,6 +193,7 @@ export const tr = {
     no: 'Hayır',
     youAreHere: 'Sen',
     locked: 'Bu maç kilitli — katılmak için istek göndermen gerek',
+    lockedOrganizer: 'Bu kilitli bir maç — organizatör olarak doğrudan katılabilirsin',
     lockedJoinDisabled: 'Kilitli maça doğrudan katılamazsın',
     cancelled: 'Bu maç iptal edildi',
     inviteOnly: 'Davetli maçı',

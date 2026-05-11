@@ -208,6 +208,32 @@ export const tr = {
       'Organizatöre katılım isteği gönderilecek. Devam edilsin mi?',
     requestSent: 'İstek gönderildi',
     promoted: 'Yedekten ilk on bire geçtin!',
+    // P2.M1: state pill labels for every MatchState. CANCELLED keeps the
+    // banner-only treatment (no pill) to avoid duplicating the same info.
+    stateLabels: {
+      DRAFT: 'Taslak',
+      OPEN: 'Açık',
+      LOCKED: 'Kilitli',
+      LIVE: 'Canlı',
+      RATING_WINDOW: 'Oylama açık',
+      CLOSED: 'Tamamlandı',
+    } as Record<string, string>,
+    countdown: {
+      // Whole-unit Turkish formatter: 1sa 35dk / 25dk / 12sa / "az kaldı"
+      format: (ms: number) => {
+        if (ms <= 0) return 'az kaldı';
+        const totalMin = Math.floor(ms / 60_000);
+        const hours = Math.floor(totalMin / 60);
+        const mins = totalMin % 60;
+        if (hours <= 0) return `${mins}dk`;
+        if (mins === 0) return `${hours}sa`;
+        return `${hours}sa ${mins}dk`;
+      },
+      startsIn: (formatted: string) => `Başlamasına ${formatted} kaldı`,
+      liveEndsIn: (formatted: string) => `Canlı — bitmesine ${formatted} kaldı`,
+      ratingEndsIn: (formatted: string) =>
+        `Oylama açık — ${formatted} içinde kapanıyor`,
+    },
     errors: {
       conflict: 'Bu yer biraz önce doldu, başka bir yer seç',
       lockedJoin:

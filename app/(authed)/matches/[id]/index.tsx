@@ -58,6 +58,61 @@ function isIdentified(
   return !!player && 'userId' in player;
 }
 
+// P2.M1: state pill color map. CANCELLED keeps the banner-only treatment.
+const STATE_PILL_STYLES: Record<string, { bg: string; text: string }> = {
+  DRAFT: { bg: 'bg-gray-100 border-gray-300', text: 'text-gray-700' },
+  OPEN: { bg: 'bg-green-100 border-green-300', text: 'text-green-900' },
+  LOCKED: { bg: 'bg-yellow-100 border-yellow-400', text: 'text-yellow-900' },
+  LIVE: { bg: 'bg-red-100 border-red-400', text: 'text-red-900' },
+  RATING_WINDOW: { bg: 'bg-blue-100 border-blue-400', text: 'text-blue-900' },
+  CLOSED: { bg: 'bg-gray-200 border-gray-400', text: 'text-gray-800' },
+};
+
+function StatePill({ state }: { state: string }) {
+  if (state === 'CANCELLED') return null;
+  const label = tr.matchDetail.stateLabels[state] ?? state;
+  const style = STATE_PILL_STYLES[state] ?? STATE_PILL_STYLES.DRAFT;
+  return (
+    <View className={`${style.bg} border rounded px-2 py-0.5`}>
+      <Text className={`text-xs font-medium ${style.text}`}>{label}</Text>
+    </View>
+  );
+}
+
+function lifecycleCountdownText(
+  match: MatchDetail,
+  now: number,
+): string | null {
+  const startMs = match.liveAt ? new Date(match.liveAt).getTime() : null;
+  const endMs = match.ratingWindowOpensAt
+    ? new Date(match.ratingWindowOpensAt).getTime()
+    : null;
+  const ratingEndsMs = match.ratingWindowClosesAt
+    ? new Date(match.ratingWindowClosesAt).getTime()
+    : null;
+
+  if (
+    (match.state === 'OPEN' || match.state === 'LOCKED') &&
+    startMs &&
+    startMs > now
+  ) {
+    return tr.matchDetail.countdown.startsIn(
+      tr.matchDetail.countdown.format(startMs - now),
+    );
+  }
+  if (match.state === 'LIVE' && endMs) {
+    return tr.matchDetail.countdown.liveEndsIn(
+      tr.matchDetail.countdown.format(endMs - now),
+    );
+  }
+  if (match.state === 'RATING_WINDOW' && ratingEndsMs) {
+    return tr.matchDetail.countdown.ratingEndsIn(
+      tr.matchDetail.countdown.format(ratingEndsMs - now),
+    );
+  }
+  return null;
+}
+
 function joinDisabledReason(
   state: string,
   isLocked: boolean,
@@ -208,6 +263,15 @@ export default function MatchDetailScreen() {
   const matchId = id ?? '';
 
   const [joiningSlotId, setJoiningSlotId] = useState<string | null>(null);
+
+  // P2.M1: tick once a minute for the lifecycle countdown text. Re-renders
+  // keep the "Başlamasına 1sa 35dk kaldı" string fresh without spamming
+  // the network — the WS match:state_change listener handles real state flips.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const matchQuery = useQuery<MatchDetail>({
     queryKey: ['match', matchId],
@@ -589,12 +653,24 @@ export default function MatchDetailScreen() {
           <Text className="text-2xl font-bold">
             {tr.matches.formatLabel(match.format)} · {match.difficulty}
           </Text>
-          {match.isLocked ? (
-            <View className="bg-yellow-100 border border-yellow-400 rounded px-2 py-0.5">
-              <Text className="text-xs font-medium text-yellow-900">LOCKED</Text>
-            </View>
-          ) : null}
+          <View className="flex-row items-center gap-1">
+            <StatePill state={match.state} />
+            {match.isLocked && match.state !== 'LOCKED' ? (
+              <View className="bg-yellow-100 border border-yellow-400 rounded px-2 py-0.5">
+                <Text className="text-xs font-medium text-yellow-900">
+                  {tr.matchDetail.stateLabels.LOCKED}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
+
+        {(() => {
+          const text = lifecycleCountdownText(match, now);
+          return text ? (
+            <Text className="text-xs italic text-gray-500">{text}</Text>
+          ) : null;
+        })()}
 
         <Text className="text-sm text-gray-700">{formatLocation(match)}</Text>
         <Text className="text-sm text-gray-700">

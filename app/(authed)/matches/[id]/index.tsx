@@ -683,6 +683,21 @@ export default function MatchDetailScreen() {
           />
         ) : null}
 
+        {/* M5: chat entry — only active participants of the match (backend
+            requires matchParticipant with leftAt: null, no organizer bypass)
+            and only while chat is open (DRAFT/CANCELLED/CLOSED return 400). */}
+        {myActiveSlot &&
+        ['OPEN', 'LOCKED', 'LIVE', 'RATING_WINDOW'].includes(match.state) ? (
+          <Pressable
+            onPress={() => router.push(`/matches/${matchId}/chat` as Href)}
+            className="flex-row items-center justify-center gap-2 bg-white border border-blue-500 rounded-lg p-3 mt-3 active:opacity-70">
+            <Ionicons name="chatbubbles-outline" size={18} color="#2563eb" />
+            <Text className="text-center font-semibold text-blue-600">
+              {tr.chat.open}
+            </Text>
+          </Pressable>
+        ) : null}
+
         {myActiveSlot ? (
           <Pressable
             disabled={leaveMutation.isPending}

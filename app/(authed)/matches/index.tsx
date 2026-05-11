@@ -19,6 +19,7 @@ import {
 } from '../../../src/api/matches';
 import { tr } from '../../../src/i18n/tr';
 import { DateTimeField } from '../../../src/components/DateTimeField';
+import { useNotificationsStore } from '../../../src/notifications/store';
 
 const FORMAT_OPTIONS = [5, 6, 7, 8, 9, 10, 11] as const;
 
@@ -81,6 +82,7 @@ function MatchCard({
 
 export default function MatchesScreen() {
   const router = useRouter();
+  const unreadCount = useNotificationsStore((s) => s.unreadCount);
   const [city, setCity] = useState('');
   const [from, setFrom] = useState<Date | null>(null);
   const [to, setTo] = useState<Date | null>(null);
@@ -146,7 +148,36 @@ export default function MatchesScreen() {
         onRefresh={() => refetch()}
         ListHeaderComponent={
           <View className="gap-3 mb-4">
-            <Text className="text-3xl font-bold">{tr.matches.title}</Text>
+            <View className="flex-row items-center justify-between">
+              <Text className="text-3xl font-bold">{tr.matches.title}</Text>
+              <Pressable
+                onPress={() => router.push('/notifications' as Href)}
+                hitSlop={8}
+                className="p-2 active:opacity-60">
+                <Ionicons
+                  name="notifications-outline"
+                  size={26}
+                  color="#1f2937"
+                />
+                {unreadCount > 0 ? (
+                  <View
+                    className="absolute bg-red-600 rounded-full"
+                    style={{
+                      top: 0,
+                      right: 0,
+                      minWidth: 18,
+                      height: 18,
+                      paddingHorizontal: 4,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    <Text className="text-[10px] font-bold text-white">
+                      {tr.notifications.unreadBadge(unreadCount)}
+                    </Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            </View>
 
             <View className="border border-gray-200 rounded-xl p-3 gap-3 bg-white">
               <Text className="text-base font-semibold">

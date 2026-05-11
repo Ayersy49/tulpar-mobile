@@ -217,6 +217,44 @@ export const tr = {
       requestExists: 'Zaten beklemede bir isteğin var',
     },
   },
+  chat: {
+    title: 'Maç sohbeti',
+    inputPlaceholder: 'Mesajını yaz...',
+    send: 'Gönder',
+    sending: 'Gönderiliyor...',
+    empty: 'Henüz mesaj yok. İlk mesajı sen yaz!',
+    loadFailed: 'Mesajlar yüklenemedi',
+    sendFailed: 'Mesaj gönderilemedi',
+    loadMore: 'Daha eski mesajları yükle',
+    loadingMore: 'Yükleniyor...',
+    systemLabel: 'Sistem',
+    tooLong: 'Mesaj 500 karakteri aşamaz',
+    open: 'Sohbete git',
+  },
+  notifications: {
+    title: 'Bildirimler',
+    empty: 'Henüz bildirim yok',
+    loadFailed: 'Bildirimler yüklenemedi',
+    markAllRead: 'Tümünü okundu işaretle',
+    marking: 'İşaretleniyor...',
+    unreadBadge: (n: number) => (n > 99 ? '99+' : String(n)),
+    relativeTime: (iso: string) => {
+      const then = new Date(iso).getTime();
+      if (Number.isNaN(then)) return '';
+      const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+      if (diffSec < 60) return 'az önce';
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin} dk önce`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr} sa önce`;
+      const diffDay = Math.floor(diffHr / 24);
+      if (diffDay < 7) return `${diffDay} g önce`;
+      const d = new Date(iso);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      return `${dd}.${mm}.${d.getFullYear()}`;
+    },
+  },
   matchRequests: {
     title: (n: number) => `Bekleyen istekler (${n})`,
     empty: 'Bekleyen istek yok',

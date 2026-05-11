@@ -85,6 +85,30 @@ export function subscribeToMatch(
 }
 
 /**
+ * Subscribe to user-room events fired to the authenticated viewer's own
+ * socket room. The backend gateway auto-joins `user:${userId}` on connect,
+ * so no additional emit is needed — we just register listeners.
+ *
+ * Used by M4.B for `match:request_created` so the organizer's pending
+ * panel updates live without pull-to-refresh. Returns an unsubscribe fn.
+ *
+ * Same WS-as-hint pattern as `subscribeToMatch`: the handler is called for
+ * every matching event but the payload is intentionally typed as `unknown`
+ * — consumers should treat it as a refetch trigger, not authoritative data.
+ */
+export function subscribeToUserEvents(
+  event: string,
+  onEvent: (payload: unknown) => void,
+): () => void {
+  const s = getSocket();
+  if (!s) return () => {};
+  s.on(event, onEvent);
+  return () => {
+    s.off(event, onEvent);
+  };
+}
+
+/**
  * Tear down the socket on logout. Called from the auth store's signOut path
  * (or any place that clears tokens) so we don't leak a connection authed
  * with a stale token.

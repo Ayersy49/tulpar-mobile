@@ -72,6 +72,8 @@ export type MatchSlot = {
   player: SlotPlayer | null;
 };
 
+export type MyRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+
 export type MatchDetail = {
   id: string;
   type: string;
@@ -99,8 +101,34 @@ export type MatchDetail = {
     filled: number;
     label: string;
   };
+  // M4.B: viewer's own join-request status, embedded so the requester UI
+  // can render "İstek beklemede" persistently without an extra round trip.
+  myRequestStatus: MyRequestStatus;
   teamA: MatchSlot[];
   teamB: MatchSlot[];
+};
+
+export type MatchRequest = {
+  id: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  preferredPosition: string | null;
+  createdAt: string;
+  user: {
+    userId: string;
+    username: string | null;
+    positions: string[];
+  };
+};
+
+export type MatchRequestCreatedEvent = {
+  matchId: string;
+  requestId: string;
+  requester: {
+    userId: string;
+    username: string | null;
+    positions: string[];
+    preferredPosition: string | null;
+  };
 };
 
 export function getMatch(id: string) {
@@ -167,4 +195,53 @@ export function cancelMatch(id: string) {
   return apiFetch<{ message: string }>(`/matches/${id}/cancel`, {
     method: 'POST',
   });
+}
+
+// ─── M4.B locked-join request flow ──────────────────────────
+
+export type SendRequestPayload = {
+  preferredPosition?: string;
+};
+
+export type SendRequestResponse = {
+  id: string;
+  status: 'PENDING';
+  preferredPosition: string | null;
+  message: string;
+};
+
+export function requestAccess(matchId: string, payload: SendRequestPayload = {}) {
+  return apiFetch<SendRequestResponse>(`/matches/${matchId}/requests`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function listRequests(matchId: string) {
+  return apiFetch<MatchRequest[]>(`/matches/${matchId}/requests`);
+}
+
+export type ApproveRequestResponse = {
+  message: string;
+  requestId: string;
+  assignedSlot: { id: string; team: 'A' | 'B'; position: string };
+};
+
+export function approveRequest(matchId: string, requestId: string) {
+  return apiFetch<ApproveRequestResponse>(
+    `/matches/${matchId}/requests/${requestId}/approve`,
+    { method: 'POST' },
+  );
+}
+
+export type RejectRequestResponse = {
+  message: string;
+  requestId: string;
+};
+
+export function rejectRequest(matchId: string, requestId: string) {
+  return apiFetch<RejectRequestResponse>(
+    `/matches/${matchId}/requests/${requestId}/reject`,
+    { method: 'POST' },
+  );
 }

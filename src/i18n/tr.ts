@@ -200,12 +200,38 @@ export const tr = {
     capacity: (filled: number, total: number) =>
       `${filled}/${total} oyuncu`,
     organizer: (name: string) => `Düzenleyen: ${name}`,
+    sendRequest: 'Katılım isteği gönder',
+    sendingRequest: 'Gönderiliyor...',
+    requestPending: 'İstek beklemede',
+    requestRejected: 'İsteğin reddedildi',
+    requestConfirm:
+      'Organizatöre katılım isteği gönderilecek. Devam edilsin mi?',
+    requestSent: 'İstek gönderildi',
     errors: {
       conflict: 'Bu yer biraz önce doldu, başka bir yer seç',
       lockedJoin:
         'Bu maç kilitli. Katılmak için istek göndermen gerek.',
       cancelled: 'Bu maç artık katılıma kapalı.',
       generic: 'Bir sorun oluştu, tekrar dene',
+      requestExists: 'Zaten beklemede bir isteğin var',
     },
+  },
+  matchRequests: {
+    title: (n: number) => `Bekleyen istekler (${n})`,
+    empty: 'Bekleyen istek yok',
+    loadFailed: 'İstekler yüklenemedi',
+    approve: 'Onayla',
+    reject: 'Reddet',
+    approving: 'Onaylanıyor...',
+    rejecting: 'Reddediliyor...',
+    confirmApprove: (name: string) =>
+      `${name} kullanıcısı maça eklensin mi?`,
+    confirmReject: (name: string) =>
+      `${name} kullanıcısının isteği reddedilsin mi?`,
+    preferredPosition: (pos: string) => `Tercih: ${pos}`,
+    profilePositions: (positions: string[]) =>
+      positions.length
+        ? `Mevkiler: ${positions.join(', ')}`
+        : 'Mevki belirtilmemiş',
   },
 } as const;

@@ -14,15 +14,23 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError } from '../../../../src/api/client';
 import {
+  approveRequest,
   getMatch,
   joinMatch,
   leaveMatch,
+  listRequests,
+  rejectRequest,
+  requestAccess,
   type MatchDetail,
+  type MatchRequest,
   type MatchSlot,
   type SlotPlayer,
 } from '../../../../src/api/matches';
 import { getMe, type MeResponse } from '../../../../src/api/me';
-import { subscribeToMatch } from '../../../../src/lib/socket';
+import {
+  subscribeToMatch,
+  subscribeToUserEvents,
+} from '../../../../src/lib/socket';
 import { tr } from '../../../../src/i18n/tr';
 
 function formatScheduledAt(iso: string | null): string {
@@ -205,6 +213,12 @@ export default function MatchDetailScreen() {
     queryKey: ['match', matchId],
     queryFn: () => getMatch(matchId),
     enabled: !!matchId,
+    // Re-opening the detail screen must always fetch fresh state. The 30s
+    // global staleTime would otherwise hide changes made by the organizer
+    // (approve / reject / cancel) that this account didn't trigger locally
+    // — the user would see a stale screen and have to pull-to-refresh.
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const meQuery = useQuery<MeResponse>({
@@ -212,6 +226,45 @@ export default function MatchDetailScreen() {
     queryFn: () => getMe(),
     staleTime: 60_000,
   });
+
+  const myUserId = meQuery.data?.id ?? null;
+  const match = matchQuery.data;
+  const isOrganizer =
+    !!myUserId &&
+    !!match &&
+    (match.creatorId === myUserId || match.authorityId === myUserId);
+  const showRequestsPanel =
+    !!match && match.isLocked && isOrganizer && match.state !== 'CANCELLED';
+
+  const requestsQuery = useQuery<MatchRequest[]>({
+    queryKey: ['match-requests', matchId],
+    queryFn: () => listRequests(matchId),
+    enabled: showRequestsPanel,
+    // Authority opens the panel and expects to see the latest pending list —
+    // staleTime 0 keeps it fresh on every focus / WS-triggered invalidate.
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+
+  // M4.B: live nudge for the organizer's pending panel. The backend emits
+  // `match:request_created` to authority + creator user rooms when a new
+  // request lands — invalidate so the panel refetches without pull-to-refresh.
+  useEffect(() => {
+    if (!showRequestsPanel) return;
+    return subscribeToUserEvents('match:request_created', (payload) => {
+      // Filter to this match — the user-room is per-user, not per-match,
+      // so the same event fires for every match they organize.
+      if (
+        payload &&
+        typeof payload === 'object' &&
+        'matchId' in payload &&
+        (payload as { matchId: string }).matchId !== matchId
+      ) {
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ['match-requests', matchId] });
+    });
+  }, [showRequestsPanel, matchId, queryClient]);
 
   // WS subscribe — every slot_update triggers a refetch of canonical detail.
   // Treating WS as a hint (not authoritative state) keeps a single source of
@@ -280,8 +333,82 @@ export default function MatchDetailScreen() {
     },
   });
 
-  const myUserId = meQuery.data?.id ?? null;
-  const match = matchQuery.data;
+  // M4.B: send a join request for a locked match. The match detail refetch
+  // (onSettled) will surface the new myRequestStatus = 'PENDING' so the
+  // requester CTA flips to its disabled "İstek beklemede" state.
+  const requestMutation = useMutation({
+    mutationFn: () =>
+      requestAccess(matchId, {
+        preferredPosition: meQuery.data?.profile?.position1 ?? undefined,
+      }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['match', matchId] });
+    },
+    onError: (err) => {
+      const apiErr = err instanceof ApiError ? err : null;
+      if (apiErr?.status === 409) {
+        Alert.alert(tr.common.error, tr.matchDetail.errors.requestExists);
+        return;
+      }
+      const backendMessage =
+        apiErr &&
+        typeof apiErr.body === 'object' &&
+        apiErr.body !== null &&
+        'message' in apiErr.body
+          ? String((apiErr.body as { message: unknown }).message)
+          : null;
+      Alert.alert(
+        tr.common.error,
+        backendMessage ?? tr.matchDetail.errors.generic,
+      );
+    },
+  });
+
+  // Organizer mutations on the pending requests panel. Approve also fills a
+  // slot (backend auto-assigns via findAvailableSlot), so we invalidate the
+  // match detail in addition to the requests list.
+  const approveMutation = useMutation({
+    mutationFn: (requestId: string) => approveRequest(matchId, requestId),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['match-requests', matchId] });
+      queryClient.invalidateQueries({ queryKey: ['match', matchId] });
+    },
+    onError: (err) => {
+      const apiErr = err instanceof ApiError ? err : null;
+      const backendMessage =
+        apiErr &&
+        typeof apiErr.body === 'object' &&
+        apiErr.body !== null &&
+        'message' in apiErr.body
+          ? String((apiErr.body as { message: unknown }).message)
+          : null;
+      Alert.alert(
+        tr.common.error,
+        backendMessage ?? tr.matchDetail.errors.generic,
+      );
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (requestId: string) => rejectRequest(matchId, requestId),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['match-requests', matchId] });
+    },
+    onError: (err) => {
+      const apiErr = err instanceof ApiError ? err : null;
+      const backendMessage =
+        apiErr &&
+        typeof apiErr.body === 'object' &&
+        apiErr.body !== null &&
+        'message' in apiErr.body
+          ? String((apiErr.body as { message: unknown }).message)
+          : null;
+      Alert.alert(
+        tr.common.error,
+        backendMessage ?? tr.matchDetail.errors.generic,
+      );
+    },
+  });
 
   const myActiveSlot = useMemo<MatchSlot | null>(() => {
     if (!match || !myUserId) return null;
@@ -305,6 +432,36 @@ export default function MatchDetailScreen() {
         text: tr.matchDetail.yes,
         style: 'destructive',
         onPress: () => leaveMutation.mutate(),
+      },
+    ]);
+  };
+
+  const handleSendRequestPress = () => {
+    Alert.alert(tr.matchDetail.sendRequest, tr.matchDetail.requestConfirm, [
+      { text: tr.matchDetail.no, style: 'cancel' },
+      {
+        text: tr.matchDetail.yes,
+        onPress: () => requestMutation.mutate(),
+      },
+    ]);
+  };
+
+  const handleApprovePress = (request: MatchRequest) => {
+    const name = request.user.username ?? '—';
+    Alert.alert(tr.matchRequests.approve, tr.matchRequests.confirmApprove(name), [
+      { text: tr.matchDetail.no, style: 'cancel' },
+      { text: tr.matchDetail.yes, onPress: () => approveMutation.mutate(request.id) },
+    ]);
+  };
+
+  const handleRejectPress = (request: MatchRequest) => {
+    const name = request.user.username ?? '—';
+    Alert.alert(tr.matchRequests.reject, tr.matchRequests.confirmReject(name), [
+      { text: tr.matchDetail.no, style: 'cancel' },
+      {
+        text: tr.matchDetail.yes,
+        style: 'destructive',
+        onPress: () => rejectMutation.mutate(request.id),
       },
     ]);
   };
@@ -356,9 +513,6 @@ export default function MatchDetailScreen() {
     );
   }
 
-  const isOrganizer =
-    !!myUserId &&
-    (match.creatorId === myUserId || match.authorityId === myUserId);
   const canEdit =
     isOrganizer &&
     !['LIVE', 'RATING_WINDOW', 'CLOSED', 'CANCELLED'].includes(match.state);
@@ -448,6 +602,24 @@ export default function MatchDetailScreen() {
           </View>
         ) : null}
 
+        {showRequestsPanel ? (
+          <PendingRequestsSection
+            query={requestsQuery}
+            approvingId={
+              approveMutation.isPending
+                ? (approveMutation.variables as string | undefined) ?? null
+                : null
+            }
+            rejectingId={
+              rejectMutation.isPending
+                ? (rejectMutation.variables as string | undefined) ?? null
+                : null
+            }
+            onApprove={handleApprovePress}
+            onReject={handleRejectPress}
+          />
+        ) : null}
+
         <TeamSection
           label={tr.matchDetail.teamA}
           slots={match.teamA}
@@ -465,6 +637,20 @@ export default function MatchDetailScreen() {
           onJoin={handleJoin}
         />
 
+        {/* M4.B requester CTA: locked match, viewer is not in the squad and
+            isn't the organizer. The single full-width button replaces per-slot
+            join (organizer auto-assigns the slot on approval). */}
+        {match.isLocked &&
+        !isOrganizer &&
+        !myActiveSlot &&
+        match.state !== 'CANCELLED' ? (
+          <RequestAccessCta
+            status={match.myRequestStatus}
+            isPending={requestMutation.isPending}
+            onPress={handleSendRequestPress}
+          />
+        ) : null}
+
         {myActiveSlot ? (
           <Pressable
             disabled={leaveMutation.isPending}
@@ -479,6 +665,153 @@ export default function MatchDetailScreen() {
         ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+type RequestAccessCtaProps = {
+  status: MatchDetail['myRequestStatus'];
+  isPending: boolean;
+  onPress: () => void;
+};
+
+function RequestAccessCta({ status, isPending, onPress }: RequestAccessCtaProps) {
+  if (status === 'PENDING') {
+    return (
+      <View className="bg-gray-200 rounded-lg p-3 mt-3">
+        <Text className="text-center font-semibold text-gray-700">
+          {tr.matchDetail.requestPending}
+        </Text>
+      </View>
+    );
+  }
+  const label = isPending
+    ? tr.matchDetail.sendingRequest
+    : tr.matchDetail.sendRequest;
+  return (
+    <View className="gap-2 mt-3">
+      {status === 'REJECTED' ? (
+        <Text className="text-xs text-red-700 text-center">
+          {tr.matchDetail.requestRejected}
+        </Text>
+      ) : null}
+      <Pressable
+        disabled={isPending}
+        onPress={onPress}
+        className="bg-blue-600 rounded-lg p-3 active:opacity-80">
+        <Text className="text-center font-semibold text-white">{label}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+type PendingRequestsSectionProps = {
+  query: ReturnType<typeof useQuery<MatchRequest[]>>;
+  approvingId: string | null;
+  rejectingId: string | null;
+  onApprove: (request: MatchRequest) => void;
+  onReject: (request: MatchRequest) => void;
+};
+
+function PendingRequestsSection({
+  query,
+  approvingId,
+  rejectingId,
+  onApprove,
+  onReject,
+}: PendingRequestsSectionProps) {
+  const requests = query.data ?? [];
+  return (
+    <View className="border border-gray-200 rounded-lg p-3 bg-white gap-2">
+      <Text className="text-base font-bold">
+        {tr.matchRequests.title(requests.length)}
+      </Text>
+      {query.isLoading ? (
+        <ActivityIndicator />
+      ) : query.isError ? (
+        <Text className="text-sm text-red-700">
+          {tr.matchRequests.loadFailed}
+        </Text>
+      ) : requests.length === 0 ? (
+        <Text className="text-sm text-gray-500 italic">
+          {tr.matchRequests.empty}
+        </Text>
+      ) : (
+        requests.map((req) => (
+          <PendingRequestRow
+            key={req.id}
+            request={req}
+            isApproving={approvingId === req.id}
+            isRejecting={rejectingId === req.id}
+            disableActions={
+              !!approvingId || !!rejectingId
+            }
+            onApprove={() => onApprove(req)}
+            onReject={() => onReject(req)}
+          />
+        ))
+      )}
+    </View>
+  );
+}
+
+type PendingRequestRowProps = {
+  request: MatchRequest;
+  isApproving: boolean;
+  isRejecting: boolean;
+  disableActions: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+};
+
+function PendingRequestRow({
+  request,
+  isApproving,
+  isRejecting,
+  disableActions,
+  onApprove,
+  onReject,
+}: PendingRequestRowProps) {
+  const username = request.user.username ?? '—';
+  const positionsLine = tr.matchRequests.profilePositions(
+    request.user.positions,
+  );
+  return (
+    <View className="border border-gray-200 rounded-lg p-2 gap-1">
+      <Text className="text-sm font-semibold text-gray-900">{username}</Text>
+      <Text className="text-xs text-gray-600">{positionsLine}</Text>
+      {request.preferredPosition ? (
+        <Text className="text-xs text-gray-600">
+          {tr.matchRequests.preferredPosition(request.preferredPosition)}
+        </Text>
+      ) : null}
+      <View className="flex-row gap-2 mt-1">
+        <Pressable
+          disabled={disableActions}
+          onPress={onApprove}
+          className={`flex-1 rounded-md p-2 ${
+            disableActions ? 'bg-green-300' : 'bg-green-600'
+          } active:opacity-80`}>
+          <Text className="text-center text-white font-semibold text-sm">
+            {isApproving ? tr.matchRequests.approving : tr.matchRequests.approve}
+          </Text>
+        </Pressable>
+        <Pressable
+          disabled={disableActions}
+          onPress={onReject}
+          className={`flex-1 rounded-md p-2 border ${
+            disableActions
+              ? 'border-red-300 bg-white'
+              : 'border-red-500 bg-white'
+          } active:opacity-80`}>
+          <Text
+            className={`text-center font-semibold text-sm ${
+              disableActions ? 'text-red-300' : 'text-red-600'
+            }`}>
+            {isRejecting ? tr.matchRequests.rejecting : tr.matchRequests.reject}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 

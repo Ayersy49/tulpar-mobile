@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -23,6 +23,21 @@ import { useNotificationsStore } from '../../../src/notifications/store';
 import { tr } from '../../../src/i18n/tr';
 
 const PAGE_LIMIT = 20;
+
+// All current backend notification types attach { matchId } in `data` and
+// route to match detail. The detail screen itself shows the right state —
+// CANCELLED banner for match_cancelled, organizer panel for join_request,
+// joined slot for request_approved, etc. Future notification types should
+// add their own branch here (e.g. a future direct-message type might route
+// to a conversation screen).
+function routeForNotification(n: NotificationItem): Href | null {
+  const matchId =
+    n.data && typeof (n.data as Record<string, unknown>).matchId === 'string'
+      ? ((n.data as Record<string, unknown>).matchId as string)
+      : null;
+  if (!matchId) return null;
+  return `/matches/${matchId}` as Href;
+}
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -63,25 +78,29 @@ export default function NotificationsScreen() {
 
   const handleRowPress = useCallback(
     (n: NotificationItem) => {
-      if (n.read) return;
-      // Optimistic: flip row to read, decrement badge, then fire-and-forget.
-      queryClient.setQueryData<NotificationsPage>(
-        ['notifications', 1],
-        (prev) =>
-          prev
-            ? {
-                ...prev,
-                notifications: prev.notifications.map((x) =>
-                  x.id === n.id ? { ...x, read: true } : x,
-                ),
-                unreadCount: Math.max(0, prev.unreadCount - 1),
-              }
-            : prev,
-      );
-      decrementUnread();
-      markReadMutation.mutate(n.id);
+      // Mark unread → read (optimistic + fire-and-forget HTTP). Read rows skip.
+      if (!n.read) {
+        queryClient.setQueryData<NotificationsPage>(
+          ['notifications', 1],
+          (prev) =>
+            prev
+              ? {
+                  ...prev,
+                  notifications: prev.notifications.map((x) =>
+                    x.id === n.id ? { ...x, read: true } : x,
+                  ),
+                  unreadCount: Math.max(0, prev.unreadCount - 1),
+                }
+              : prev,
+        );
+        decrementUnread();
+        markReadMutation.mutate(n.id);
+      }
+      // Deep-link to the relevant screen if the payload tells us where.
+      const route = routeForNotification(n);
+      if (route) router.push(route);
     },
-    [decrementUnread, markReadMutation, queryClient],
+    [decrementUnread, markReadMutation, queryClient, router],
   );
 
   const renderItem = useCallback(

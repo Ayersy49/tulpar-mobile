@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -420,6 +420,29 @@ export default function MatchDetailScreen() {
     );
   }, [match, myUserId]);
 
+  // M4.C: surface a 2-second toast when the viewer is promoted from reserve
+  // to starter. Detect on the `myActiveSlot.isReserve` true → false edge so
+  // we never fire on initial mount (when prev is null) or on a starter join
+  // (where prev was null and current is false).
+  const [showPromotedToast, setShowPromotedToast] = useState(false);
+  const prevIsReserveRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    if (!myActiveSlot) {
+      // Reset on leave so a future re-join into a reserve slot starts clean.
+      prevIsReserveRef.current = null;
+      return;
+    }
+    const wasReserve = prevIsReserveRef.current;
+    const isReserve = myActiveSlot.isReserve;
+    prevIsReserveRef.current = isReserve;
+    if (wasReserve === true && isReserve === false) {
+      setShowPromotedToast(true);
+      const timer = setTimeout(() => setShowPromotedToast(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [myActiveSlot]);
+
   const handleJoin = (slotId: string) => {
     if (joinMutation.isPending) return;
     joinMutation.mutate(slotId);
@@ -529,6 +552,15 @@ export default function MatchDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
+      {showPromotedToast ? (
+        <View
+          pointerEvents="none"
+          className="absolute top-12 left-4 right-4 z-50 bg-green-600 rounded-lg p-3 shadow-lg">
+          <Text className="text-center font-semibold text-white">
+            {tr.matchDetail.promoted}
+          </Text>
+        </View>
+      ) : null}
       <ScrollView
         contentContainerClassName="p-4 gap-3"
         refreshControl={

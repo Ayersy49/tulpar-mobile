@@ -207,6 +207,7 @@ export const tr = {
     requestConfirm:
       'Organizatöre katılım isteği gönderilecek. Devam edilsin mi?',
     requestSent: 'İstek gönderildi',
+    promoted: 'Yedekten ilk on bire geçtin!',
     errors: {
       conflict: 'Bu yer biraz önce doldu, başka bir yer seç',
       lockedJoin:

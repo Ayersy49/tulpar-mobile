@@ -78,13 +78,18 @@ function acquireMatchRoom(s: Socket, matchId: string): () => void {
 }
 
 /**
- * Subscribe to live slot updates AND cancellation for a match. Returns an
- * unsubscribe function that should be called from the screen's cleanup.
+ * Subscribe to live updates for a match (slot changes, cancellation, and
+ * P2.M1 lifecycle state transitions). Returns an unsubscribe fn for cleanup.
  *
- * Fires `onChange` for every `match:slot_update` (join/leave/promote) AND
- * every `match:cancelled` event. Consumers treat it as a hint to refetch
- * canonical detail — keeps a single source of truth and avoids local slot
- * reconciliation logic.
+ * Fires `onChange` for every `match:slot_update` (join/leave/promote),
+ * every `match:cancelled`, AND every `match:state_change` event. Consumers
+ * treat it as a hint to refetch canonical detail — keeps a single source of
+ * truth and avoids local reconciliation logic.
+ *
+ * `match:state_change` is emitted by the backend LifecycleService cron when
+ * a match transitions OPEN/LOCKED → LIVE → RATING_WINDOW → CLOSED. Mobile
+ * just refetches; the detail formatter exposes the new state + derived
+ * `liveAt` / `ratingWindowOpensAt` / `ratingWindowClosesAt` timestamps.
  *
  * Match-room subscription is ref-counted so the detail screen and chat
  * screen can both subscribe; only the last release emits `match:unsubscribe`.
@@ -101,10 +106,12 @@ export function subscribeToMatch(
   const handler = () => onChange();
   s.on('match:slot_update', handler);
   s.on('match:cancelled', handler);
+  s.on('match:state_change', handler);
 
   return () => {
     s.off('match:slot_update', handler);
     s.off('match:cancelled', handler);
+    s.off('match:state_change', handler);
     releaseRoom();
   };
 }

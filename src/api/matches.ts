@@ -85,6 +85,13 @@ export type MatchDetail = {
   pricePerPerson: number | null;
   scheduledAt: string | null;
   durationMin: number;
+  // P2.M1: derived lifecycle timestamps from the backend so the UI can render
+  // countdowns without re-deriving the rule. All ISO strings or null when
+  // scheduledAt is null. ratingWindowOpensAt = scheduledAt + durationMin;
+  // ratingWindowClosesAt = ratingWindowOpensAt + 24h.
+  liveAt: string | null;
+  ratingWindowOpensAt: string | null;
+  ratingWindowClosesAt: string | null;
   pitchName: string | null;
   pitchLat: number | null;
   pitchLng: number | null;

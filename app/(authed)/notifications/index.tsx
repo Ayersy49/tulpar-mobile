@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import {
   listNotifications,
@@ -23,6 +28,7 @@ import { useNotificationsStore } from '../../../src/notifications/store';
 import { tr } from '../../../src/i18n/tr';
 
 const PAGE_LIMIT = 20;
+const NOTIFICATIONS_QUERY_KEY = ['notifications'] as const;
 
 // All current backend notification types attach { matchId } in `data` and
 // route to match detail. The detail screen itself shows the right state —
@@ -46,17 +52,33 @@ export default function NotificationsScreen() {
   const decrementUnread = useNotificationsStore((s) => s.decrementUnread);
   const clearUnread = useNotificationsStore((s) => s.clearUnread);
 
-  const query = useQuery<NotificationsPage>({
-    queryKey: ['notifications', 1],
-    queryFn: () => listNotifications({ page: 1, limit: PAGE_LIMIT }),
+  const query = useInfiniteQuery<
+    NotificationsPage,
+    Error,
+    InfiniteData<NotificationsPage>,
+    typeof NOTIFICATIONS_QUERY_KEY,
+    number
+  >({
+    queryKey: NOTIFICATIONS_QUERY_KEY,
+    queryFn: ({ pageParam }) =>
+      listNotifications({ page: pageParam, limit: PAGE_LIMIT }),
+    initialPageParam: 1,
+    getNextPageParam: (last) =>
+      last.page * last.limit < last.total ? last.page + 1 : undefined,
     staleTime: 0,
     refetchOnMount: 'always',
   });
 
-  // Seed the global unread badge whenever this screen reads a fresh page.
+  const items = useMemo<NotificationItem[]>(
+    () => query.data?.pages.flatMap((p) => p.notifications) ?? [],
+    [query.data],
+  );
+  const unreadCount = query.data?.pages[0]?.unreadCount ?? 0;
+
+  // Seed the global unread badge from the first page's count.
   useEffect(() => {
-    if (query.data) setUnread(query.data.unreadCount);
-  }, [query.data, setUnread]);
+    if (query.data) setUnread(unreadCount);
+  }, [query.data, unreadCount, setUnread]);
 
   const markReadMutation = useMutation({
     mutationFn: (id: string) => markNotificationRead(id),
@@ -69,7 +91,7 @@ export default function NotificationsScreen() {
     mutationFn: () => markAllNotificationsRead(),
     onSuccess: () => {
       clearUnread();
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
     },
     onError: () => {
       Alert.alert(tr.common.error, tr.notifications.loadFailed);
@@ -80,16 +102,22 @@ export default function NotificationsScreen() {
     (n: NotificationItem) => {
       // Mark unread → read (optimistic + fire-and-forget HTTP). Read rows skip.
       if (!n.read) {
-        queryClient.setQueryData<NotificationsPage>(
-          ['notifications', 1],
+        queryClient.setQueryData<InfiniteData<NotificationsPage>>(
+          NOTIFICATIONS_QUERY_KEY,
           (prev) =>
             prev
               ? {
                   ...prev,
-                  notifications: prev.notifications.map((x) =>
-                    x.id === n.id ? { ...x, read: true } : x,
-                  ),
-                  unreadCount: Math.max(0, prev.unreadCount - 1),
+                  pages: prev.pages.map((page, idx) => ({
+                    ...page,
+                    notifications: page.notifications.map((x) =>
+                      x.id === n.id ? { ...x, read: true } : x,
+                    ),
+                    unreadCount:
+                      idx === 0
+                        ? Math.max(0, page.unreadCount - 1)
+                        : page.unreadCount,
+                  })),
                 }
               : prev,
         );
@@ -102,6 +130,12 @@ export default function NotificationsScreen() {
     },
     [decrementUnread, markReadMutation, queryClient, router],
   );
+
+  const handleEndReached = useCallback(() => {
+    if (query.hasNextPage && !query.isFetchingNextPage) {
+      query.fetchNextPage();
+    }
+  }, [query]);
 
   const renderItem = useCallback(
     ({ item }: { item: NotificationItem }) => (
@@ -125,7 +159,7 @@ export default function NotificationsScreen() {
         <View style={{ width: 56 }} />
       </View>
 
-      {(query.data?.unreadCount ?? 0) > 0 ? (
+      {unreadCount > 0 ? (
         <View className="px-4 py-2 border-b border-gray-200 bg-white">
           <Pressable
             disabled={markAllMutation.isPending}
@@ -155,7 +189,7 @@ export default function NotificationsScreen() {
             <Text className="text-white font-semibold">{tr.common.retry}</Text>
           </Pressable>
         </View>
-      ) : (query.data?.notifications.length ?? 0) === 0 ? (
+      ) : items.length === 0 ? (
         <View className="flex-1 items-center justify-center p-4">
           <Text className="text-sm text-gray-500 italic">
             {tr.notifications.empty}
@@ -163,13 +197,22 @@ export default function NotificationsScreen() {
         </View>
       ) : (
         <FlatList
-          data={query.data?.notifications ?? []}
+          data={items}
           keyExtractor={(n) => n.id}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 12, gap: 8 }}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            query.isFetchingNextPage ? (
+              <View className="py-4 items-center">
+                <ActivityIndicator />
+              </View>
+            ) : null
+          }
           refreshControl={
             <RefreshControl
-              refreshing={query.isFetching && !query.isLoading}
+              refreshing={query.isRefetching && !query.isFetchingNextPage}
               onRefresh={() => query.refetch()}
             />
           }

@@ -297,8 +297,13 @@ export default function MatchDetailScreen() {
     !!myUserId &&
     !!match &&
     (match.creatorId === myUserId || match.authorityId === myUserId);
+  // Mirror the backend `approveRequest` state guard: once a match leaves
+  // OPEN/LOCKED, approvals 400 and the panel would dead-end.
   const showRequestsPanel =
-    !!match && match.isLocked && isOrganizer && match.state !== 'CANCELLED';
+    !!match &&
+    match.isLocked &&
+    isOrganizer &&
+    (match.state === 'OPEN' || match.state === 'LOCKED');
 
   const requestsQuery = useQuery<MatchRequest[]>({
     queryKey: ['match-requests', matchId],
@@ -700,7 +705,8 @@ export default function MatchDetailScreen() {
             </Text>
           </View>
         ) : null}
-        {match.isLocked && match.state !== 'CANCELLED' ? (
+        {match.isLocked &&
+        (match.state === 'OPEN' || match.state === 'LOCKED') ? (
           <View className="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
             <Text className="text-sm text-yellow-900">
               {isOrganizer
@@ -747,11 +753,14 @@ export default function MatchDetailScreen() {
 
         {/* M4.B requester CTA: locked match, viewer is not in the squad and
             isn't the organizer. The single full-width button replaces per-slot
-            join (organizer auto-assigns the slot on approval). */}
+            join (organizer auto-assigns the slot on approval). Only joinable
+            states (OPEN / LOCKED) — once a match goes LIVE/RATING_WINDOW/CLOSED
+            the backend rejects new requests with 400 and the CTA would be a
+            dead end. */}
         {match.isLocked &&
         !isOrganizer &&
         !myActiveSlot &&
-        match.state !== 'CANCELLED' ? (
+        (match.state === 'OPEN' || match.state === 'LOCKED') ? (
           <RequestAccessCta
             status={match.myRequestStatus}
             isPending={requestMutation.isPending}

@@ -103,7 +103,19 @@ export function subscribeToMatch(
 
   const releaseRoom = acquireMatchRoom(s, matchId);
 
-  const handler = () => onChange();
+  // socket.io listeners are scoped to the socket, not the room — a socket
+  // joined to two match rooms receives both rooms' events. Filter by matchId
+  // (backend stamps every match-room payload via WsGateway.emitToMatch).
+  const handler = (payload: unknown) => {
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      (payload as { matchId?: string }).matchId !== matchId
+    ) {
+      return;
+    }
+    onChange();
+  };
   s.on('match:slot_update', handler);
   s.on('match:cancelled', handler);
   s.on('match:state_change', handler);
@@ -126,6 +138,7 @@ export function subscribeToMatch(
  * be reconciled by id).
  */
 export type ChatMessageEvent = {
+  matchId: string;
   id: string;
   content: string;
   isSystem: boolean;
@@ -142,7 +155,11 @@ export function subscribeToMatchChat(
 
   const releaseRoom = acquireMatchRoom(s, matchId);
 
-  const handler = (payload: ChatMessageEvent) => onMessage(payload);
+  // Filter by matchId — same reason as subscribeToMatch's handler.
+  const handler = (payload: ChatMessageEvent) => {
+    if (payload?.matchId !== matchId) return;
+    onMessage(payload);
+  };
   s.on('chat:message', handler);
 
   return () => {

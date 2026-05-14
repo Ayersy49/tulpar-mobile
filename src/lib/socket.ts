@@ -78,18 +78,24 @@ function acquireMatchRoom(s: Socket, matchId: string): () => void {
 }
 
 /**
- * Subscribe to live updates for a match (slot changes, cancellation, and
- * P2.M1 lifecycle state transitions). Returns an unsubscribe fn for cleanup.
+ * Subscribe to live updates for a match (slot changes, cancellation,
+ * P2.M1 lifecycle state transitions, and scheduledAt postpone/forward
+ * changes). Returns an unsubscribe fn for cleanup.
  *
  * Fires `onChange` for every `match:slot_update` (join/leave/promote),
- * every `match:cancelled`, AND every `match:state_change` event. Consumers
- * treat it as a hint to refetch canonical detail — keeps a single source of
- * truth and avoids local reconciliation logic.
+ * every `match:cancelled`, every `match:state_change`, AND every
+ * `match:updated` event. Consumers treat it as a hint to refetch canonical
+ * detail — keeps a single source of truth and avoids local reconciliation.
  *
  * `match:state_change` is emitted by the backend LifecycleService cron when
  * a match transitions OPEN/LOCKED → LIVE → RATING_WINDOW → CLOSED. Mobile
  * just refetches; the detail formatter exposes the new state + derived
  * `liveAt` / `ratingWindowOpensAt` / `ratingWindowClosesAt` timestamps.
+ *
+ * `match:updated` is emitted by `MatchesService.update()` whenever
+ * `scheduledAt` changes in either direction (postpone or move forward).
+ * Mobile refetches so the detail header reflects the new time without a
+ * pull-to-refresh.
  *
  * Match-room subscription is ref-counted so the detail screen and chat
  * screen can both subscribe; only the last release emits `match:unsubscribe`.
@@ -119,11 +125,13 @@ export function subscribeToMatch(
   s.on('match:slot_update', handler);
   s.on('match:cancelled', handler);
   s.on('match:state_change', handler);
+  s.on('match:updated', handler);
 
   return () => {
     s.off('match:slot_update', handler);
     s.off('match:cancelled', handler);
     s.off('match:state_change', handler);
+    s.off('match:updated', handler);
     releaseRoom();
   };
 }

@@ -234,6 +234,33 @@ export const tr = {
       ratingEndsIn: (formatted: string) =>
         `Oylama açık — ${formatted} içinde kapanıyor`,
     },
+    rating: {
+      title: 'Oyuncu puanları',
+      hint: 'Takım arkadaşlarını ve rakiplerini puanla. Kendine oy veremezsin.',
+      closed: 'Kilitli',
+      closedHint: 'Oylama süresi kapandı. Puanlar artık düzenlenemez.',
+      participantsOnly: 'Sadece bu maçtaki aktif oyuncular puan verebilir.',
+      empty: 'Puanlayabileceğin oyuncu yok.',
+      performance: 'Performans',
+      sportsmanshipTitle: 'Sportmenlik',
+      submit: 'Puanı gönder',
+      update: 'Puanı güncelle',
+      saved: 'Puan kaydedildi',
+      saveFailed: 'Puan kaydedilemedi',
+      completeHint: 'Göndermek için performans ve tüm sportmenlik alanlarını seç.',
+      editLimitReached: 'Bu oyuncu için düzenleme hakkın doldu.',
+      editsLeft: (n: number) =>
+        n === 0 ? 'Düzenleme yok' : `Düzenleme hakkı: ${n}`,
+      playerMeta: (team: 'A' | 'B', position: string, reserve: boolean) =>
+        `Takım ${team} · ${position}${reserve ? ' · yedek' : ''}`,
+      axes: {
+        respect: 'Saygı',
+        sportsmanship: 'Sportmenlik',
+        swearing: 'Küfürsüz oyun',
+        aggression: 'Sakinlik',
+        punctuality: 'Dakiklik',
+      } as Record<string, string>,
+    },
     errors: {
       conflict: 'Bu yer biraz önce doldu, başka bir yer seç',
       lockedJoin:

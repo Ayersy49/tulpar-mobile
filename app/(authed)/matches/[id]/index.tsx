@@ -28,6 +28,12 @@ import {
 } from '../../../../src/api/matches';
 import { getMe, type MeResponse } from '../../../../src/api/me';
 import {
+  getMyRatingsForMatch,
+  submitRating,
+  type MyRatingVote,
+  type SubmitRatingPayload,
+} from '../../../../src/api/ratings';
+import {
   subscribeToMatch,
   subscribeToUserEvents,
 } from '../../../../src/lib/socket';
@@ -256,6 +262,84 @@ function TeamSection({
   );
 }
 
+type RateablePlayer = {
+  userId: string;
+  username: string | null;
+  position: string;
+  team: 'A' | 'B';
+  isReserve: boolean;
+};
+
+type RatingDraft = Omit<SubmitRatingPayload, 'rateeUserId'>;
+
+const EMPTY_RATING: RatingDraft = {
+  performance: 0,
+  respect: 0,
+  sportsmanship: 0,
+  swearing: 0,
+  aggression: 0,
+  punctuality: 0,
+};
+
+const SPORTSMANSHIP_AXES = [
+  'respect',
+  'sportsmanship',
+  'swearing',
+  'aggression',
+  'punctuality',
+] as const;
+
+type SportsmanshipAxis = (typeof SPORTSMANSHIP_AXES)[number];
+
+function buildRateablePlayers(
+  match: MatchDetail,
+  myUserId: string | null,
+): RateablePlayer[] {
+  const seen = new Set<string>();
+  const rows: RateablePlayer[] = [];
+  const collect = (slots: MatchSlot[], team: 'A' | 'B') => {
+    for (const slot of slots) {
+      if (!isIdentified(slot.player)) continue;
+      if (slot.player.userId === myUserId) continue;
+      if (seen.has(slot.player.userId)) continue;
+      seen.add(slot.player.userId);
+      rows.push({
+        userId: slot.player.userId,
+        username: slot.player.username,
+        position: slot.position,
+        team,
+        isReserve: slot.isReserve,
+      });
+    }
+  };
+  collect(match.teamA, 'A');
+  collect(match.teamB, 'B');
+  return rows;
+}
+
+function voteToDraft(vote: MyRatingVote | undefined): RatingDraft {
+  if (!vote) return EMPTY_RATING;
+  return {
+    performance: vote.performance,
+    respect: vote.respect,
+    sportsmanship: vote.sportsmanship,
+    swearing: vote.swearing,
+    aggression: vote.aggression,
+    punctuality: vote.punctuality,
+  };
+}
+
+function isCompleteRating(draft: RatingDraft): boolean {
+  return (
+    draft.performance >= 1 &&
+    draft.respect >= 1 &&
+    draft.sportsmanship >= 1 &&
+    draft.swearing >= 1 &&
+    draft.aggression >= 1 &&
+    draft.punctuality >= 1
+  );
+}
+
 export default function MatchDetailScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -311,6 +395,17 @@ export default function MatchDetailScreen() {
     enabled: showRequestsPanel,
     // Authority opens the panel and expects to see the latest pending list —
     // staleTime 0 keeps it fresh on every focus / WS-triggered invalidate.
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+
+  const showRatingsSection =
+    !!match && (match.state === 'RATING_WINDOW' || match.state === 'CLOSED');
+
+  const myRatingsQuery = useQuery<MyRatingVote[]>({
+    queryKey: ['match-ratings-me', matchId],
+    queryFn: () => getMyRatingsForMatch(matchId),
+    enabled: !!matchId && showRatingsSection,
     staleTime: 0,
     refetchOnMount: 'always',
   });
@@ -479,6 +574,28 @@ export default function MatchDetailScreen() {
     },
   });
 
+  const ratingMutation = useMutation({
+    mutationFn: (payload: SubmitRatingPayload) => submitRating(matchId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['match-ratings-me', matchId] });
+      Alert.alert(tr.common.saved, tr.matchDetail.rating.saved);
+    },
+    onError: (err) => {
+      const apiErr = err instanceof ApiError ? err : null;
+      const backendMessage =
+        apiErr &&
+        typeof apiErr.body === 'object' &&
+        apiErr.body !== null &&
+        'message' in apiErr.body
+          ? String((apiErr.body as { message: unknown }).message)
+          : null;
+      Alert.alert(
+        tr.common.error,
+        backendMessage ?? tr.matchDetail.rating.saveFailed,
+      );
+    },
+  });
+
   const myActiveSlot = useMemo<MatchSlot | null>(() => {
     if (!match || !myUserId) return null;
     const all = [...match.teamA, ...match.teamB];
@@ -618,6 +735,12 @@ export default function MatchDetailScreen() {
   // from firing parallel mutations on different slots before the first
   // settles.
   const canJoin = !myActiveSlot && !blockReason && !joinMutation.isPending;
+  const rateablePlayers = match
+    ? buildRateablePlayers(match, myUserId)
+    : [];
+  const existingVotes = new Map(
+    (myRatingsQuery.data ?? []).map((vote) => [vote.rateeUserId, vote]),
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -751,6 +874,23 @@ export default function MatchDetailScreen() {
           onJoin={handleJoin}
         />
 
+        {showRatingsSection ? (
+          <RatingsSection
+            matchState={match.state}
+            isParticipant={!!myActiveSlot}
+            players={rateablePlayers}
+            votes={existingVotes}
+            isLoading={myRatingsQuery.isLoading}
+            isSaving={ratingMutation.isPending}
+            savingRateeUserId={
+              ratingMutation.isPending
+                ? ratingMutation.variables?.rateeUserId ?? null
+                : null
+            }
+            onSubmit={(payload) => ratingMutation.mutate(payload)}
+          />
+        ) : null}
+
         {/* M4.B requester CTA: locked match, viewer is not in the squad and
             isn't the organizer. The single full-width button replaces per-slot
             join (organizer auto-assigns the slot on approval). Only joinable
@@ -805,6 +945,262 @@ type RequestAccessCtaProps = {
   isPending: boolean;
   onPress: () => void;
 };
+
+type RatingsSectionProps = {
+  matchState: string;
+  isParticipant: boolean;
+  players: RateablePlayer[];
+  votes: Map<string, MyRatingVote>;
+  isLoading: boolean;
+  isSaving: boolean;
+  savingRateeUserId: string | null;
+  onSubmit: (payload: SubmitRatingPayload) => void;
+};
+
+function RatingsSection({
+  matchState,
+  isParticipant,
+  players,
+  votes,
+  isLoading,
+  isSaving,
+  savingRateeUserId,
+  onSubmit,
+}: RatingsSectionProps) {
+  const isClosed = matchState === 'CLOSED';
+  if (!isParticipant) {
+    return (
+      <View className="border border-gray-200 rounded-lg p-3 bg-white gap-1 mt-3">
+        <Text className="text-base font-bold">{tr.matchDetail.rating.title}</Text>
+        <Text className="text-sm text-gray-500">
+          {tr.matchDetail.rating.participantsOnly}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className="border border-blue-200 rounded-lg p-3 bg-white gap-3 mt-3">
+      <View className="flex-row items-center justify-between gap-2">
+        <Text className="text-base font-bold text-gray-900">
+          {tr.matchDetail.rating.title}
+        </Text>
+        {isClosed ? (
+          <View className="bg-gray-100 border border-gray-300 rounded px-2 py-0.5">
+            <Text className="text-xs font-semibold text-gray-700">
+              {tr.matchDetail.rating.closed}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      <Text className="text-xs text-gray-500">
+        {isClosed
+          ? tr.matchDetail.rating.closedHint
+          : tr.matchDetail.rating.hint}
+      </Text>
+
+      {isLoading ? (
+        <ActivityIndicator />
+      ) : players.length === 0 ? (
+        <Text className="text-sm text-gray-500 italic">
+          {tr.matchDetail.rating.empty}
+        </Text>
+      ) : (
+        players.map((player) => {
+          const vote = votes.get(player.userId);
+          return (
+            <RatingCard
+              key={player.userId}
+              player={player}
+              vote={vote}
+              disabled={isClosed || (vote?.editsLeft ?? 1) <= 0}
+              isSaving={isSaving && savingRateeUserId === player.userId}
+              onSubmit={(draft) =>
+                onSubmit({ rateeUserId: player.userId, ...draft })
+              }
+            />
+          );
+        })
+      )}
+    </View>
+  );
+}
+
+type RatingCardProps = {
+  player: RateablePlayer;
+  vote: MyRatingVote | undefined;
+  disabled: boolean;
+  isSaving: boolean;
+  onSubmit: (draft: RatingDraft) => void;
+};
+
+function RatingCard({
+  player,
+  vote,
+  disabled,
+  isSaving,
+  onSubmit,
+}: RatingCardProps) {
+  const [draft, setDraft] = useState<RatingDraft>(() => voteToDraft(vote));
+
+  useEffect(() => {
+    setDraft(voteToDraft(vote));
+  }, [vote]);
+
+  const complete = isCompleteRating(draft);
+  const submitDisabled = disabled || isSaving || !complete;
+  const username = player.username ?? '—';
+
+  const setAxis = (axis: SportsmanshipAxis, value: number) => {
+    setDraft((current) => ({ ...current, [axis]: value }));
+  };
+
+  return (
+    <View className="border border-gray-200 rounded-lg p-3 gap-3">
+      <View className="flex-row items-start justify-between gap-2">
+        <View className="flex-1">
+          <Text className="text-sm font-bold text-gray-900">{username}</Text>
+          <Text className="text-xs text-gray-500">
+            {tr.matchDetail.rating.playerMeta(
+              player.team,
+              player.position,
+              player.isReserve,
+            )}
+          </Text>
+        </View>
+        {vote ? (
+          <Text className="text-xs text-gray-500">
+            {tr.matchDetail.rating.editsLeft(vote.editsLeft)}
+          </Text>
+        ) : null}
+      </View>
+
+      <ScorePicker
+        label={tr.matchDetail.rating.performance}
+        value={draft.performance}
+        disabled={disabled || isSaving}
+        onChange={(value) =>
+          setDraft((current) => ({ ...current, performance: value }))
+        }
+      />
+
+      <View className="gap-2">
+        <Text className="text-xs font-semibold text-gray-600 uppercase">
+          {tr.matchDetail.rating.sportsmanshipTitle}
+        </Text>
+        {SPORTSMANSHIP_AXES.map((axis) => (
+          <StarPicker
+            key={axis}
+            label={tr.matchDetail.rating.axes[axis]}
+            value={draft[axis]}
+            disabled={disabled || isSaving}
+            onChange={(value) => setAxis(axis, value)}
+          />
+        ))}
+      </View>
+
+      {disabled ? (
+        <Text className="text-xs text-gray-500">
+          {vote && vote.editsLeft <= 0
+            ? tr.matchDetail.rating.editLimitReached
+            : tr.matchDetail.rating.closedHint}
+        </Text>
+      ) : !complete ? (
+        <Text className="text-xs text-yellow-700">
+          {tr.matchDetail.rating.completeHint}
+        </Text>
+      ) : null}
+
+      <Pressable
+        disabled={submitDisabled}
+        onPress={() => onSubmit(draft)}
+        className={`rounded-lg p-3 ${
+          submitDisabled ? 'bg-blue-300' : 'bg-blue-600'
+        } active:opacity-80`}>
+        <Text className="text-center font-semibold text-white">
+          {isSaving
+            ? tr.common.saving
+            : vote
+              ? tr.matchDetail.rating.update
+              : tr.matchDetail.rating.submit}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+type ScorePickerProps = {
+  label: string;
+  value: number;
+  disabled: boolean;
+  onChange: (value: number) => void;
+};
+
+function ScorePicker({ label, value, disabled, onChange }: ScorePickerProps) {
+  return (
+    <View className="gap-2">
+      <Text className="text-xs font-semibold text-gray-600 uppercase">
+        {label}
+      </Text>
+      <View className="flex-row flex-wrap gap-1">
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+          const selected = value === n;
+          return (
+            <Pressable
+              key={n}
+              disabled={disabled}
+              onPress={() => onChange(n)}
+              className={`w-8 h-8 rounded border items-center justify-center ${
+                selected
+                  ? 'bg-blue-600 border-blue-600'
+                  : 'bg-white border-gray-300'
+              } ${disabled ? 'opacity-60' : ''}`}>
+              <Text
+                className={`text-xs font-bold ${
+                  selected ? 'text-white' : 'text-gray-700'
+                }`}>
+                {n}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+type StarPickerProps = {
+  label: string;
+  value: number;
+  disabled: boolean;
+  onChange: (value: number) => void;
+};
+
+function StarPicker({ label, value, disabled, onChange }: StarPickerProps) {
+  return (
+    <View className="flex-row items-center justify-between gap-2">
+      <Text className="text-sm text-gray-700 flex-1">{label}</Text>
+      <View className="flex-row">
+        {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => {
+          const selected = n <= value;
+          return (
+            <Pressable
+              key={n}
+              disabled={disabled}
+              onPress={() => onChange(n)}
+              className={disabled ? 'opacity-60' : ''}>
+              <Ionicons
+                name={selected ? 'star' : 'star-outline'}
+                size={24}
+                color={selected ? '#f59e0b' : '#9ca3af'}
+              />
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
 function RequestAccessCta({ status, isPending, onPress }: RequestAccessCtaProps) {
   if (status === 'PENDING') {

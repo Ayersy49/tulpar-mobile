@@ -30,18 +30,21 @@ import { tr } from '../../../src/i18n/tr';
 const PAGE_LIMIT = 20;
 const NOTIFICATIONS_QUERY_KEY = ['notifications'] as const;
 
-// All current backend notification types attach { matchId } in `data` and
-// route to match detail. The detail screen itself shows the right state —
-// CANCELLED banner for match_cancelled, organizer panel for join_request,
-// joined slot for request_approved, etc. Future notification types should
-// add their own branch here (e.g. a future direct-message type might route
-// to a conversation screen).
+// Most backend notification types attach { matchId } in `data` and route to
+// match detail, where the screen itself shows the right state — CANCELLED
+// banner for match_cancelled, organizer panel for join_request, joined slot
+// for request_approved, etc. `match_rating_open` deep-links straight to the
+// rating screen because the detail page no longer renders rating UI and the
+// match has vanished from the OPEN/LOCKED-only discoverability list.
 function routeForNotification(n: NotificationItem): Href | null {
   const matchId =
     n.data && typeof (n.data as Record<string, unknown>).matchId === 'string'
       ? ((n.data as Record<string, unknown>).matchId as string)
       : null;
   if (!matchId) return null;
+  if (n.type === 'match_rating_open') {
+    return `/matches/${matchId}/rate` as Href;
+  }
   return `/matches/${matchId}` as Href;
 }
 

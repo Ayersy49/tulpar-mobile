@@ -235,24 +235,36 @@ export const tr = {
         `Oylama açık — ${formatted} içinde kapanıyor`,
     },
     rating: {
-      title: 'Oyuncu puanları',
-      hint: 'Takım arkadaşlarını ve rakiplerini puanla. Kendine oy veremezsin.',
-      closed: 'Kilitli',
+      title: 'Maçı puanla',
+      openPill: 'Maçı puanla',
+      hint: 'Sadece istediğin alanları puanla — her alanı doldurmak zorunda değilsin.',
+      optionalHint:
+        'Bir oyuncuda yalnızca saygıyı puanlayabilirsin, veya yalnızca performansı; istemediğin alanları boş bırak.',
+      closed: 'Kapalı',
       closedHint: 'Oylama süresi kapandı. Puanlar artık düzenlenemez.',
       participantsOnly: 'Sadece bu maçtaki aktif oyuncular puan verebilir.',
+      notParticipant:
+        'Bu maça katılmadığın için puan veremezsin. Oylama maçtaki oyunculara açık.',
       empty: 'Puanlayabileceğin oyuncu yok.',
       performance: 'Performans',
       sportsmanshipTitle: 'Sportmenlik',
-      submit: 'Puanı gönder',
-      update: 'Puanı güncelle',
       saved: 'Puan kaydedildi',
       saveFailed: 'Puan kaydedilemedi',
-      completeHint: 'Göndermek için performans ve tüm sportmenlik alanlarını seç.',
+      dirty: 'Değişti',
       editLimitReached: 'Bu oyuncu için düzenleme hakkın doldu.',
       editsLeft: (n: number) =>
         n === 0 ? 'Düzenleme yok' : `Düzenleme hakkı: ${n}`,
       playerMeta: (team: 'A' | 'B', position: string, reserve: boolean) =>
         `Takım ${team} · ${position}${reserve ? ' · yedek' : ''}`,
+      // Sticky bottom bar
+      saveAll: 'Tümünü kaydet',
+      saveAllWithCount: (n: number) => `Tümünü kaydet (${n})`,
+      savingProgress: (current: number, total: number) =>
+        `Kaydediliyor… ${current}/${total}`,
+      nothingDirty: 'Kaydedilecek değişiklik yok',
+      partialSuccess: (ok: number, fail: number) =>
+        `${ok} oyuncu kaydedildi, ${fail} oyuncu kaydedilemedi.`,
+      back: 'Geri',
       axes: {
         respect: 'Saygı',
         sportsmanship: 'Sportmenlik',

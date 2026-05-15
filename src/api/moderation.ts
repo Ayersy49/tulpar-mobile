@@ -2,21 +2,25 @@
 import { apiFetch } from './client';
 
 export type ReportReason =
-  | 'TOXICITY'
-  | 'AGGRESSION'
-  | 'PROFANITY'
+  | 'CHAT_SWEARING'
+  | 'CHAT_TOXICITY'
+  | 'CHAT_TROLLING'
+  | 'GAME_SWEARING'
+  | 'GAME_AGGRESSION'
+  | 'GAME_INSULT'
   | 'NO_SHOW'
-  | 'CHEATING'
-  | 'HARASSMENT'
+  | 'RANK_CHEATING'
   | 'OTHER';
 
 export const REPORT_REASONS: readonly ReportReason[] = [
-  'TOXICITY',
-  'AGGRESSION',
-  'PROFANITY',
+  'CHAT_SWEARING',
+  'CHAT_TOXICITY',
+  'CHAT_TROLLING',
+  'GAME_SWEARING',
+  'GAME_AGGRESSION',
+  'GAME_INSULT',
   'NO_SHOW',
-  'CHEATING',
-  'HARASSMENT',
+  'RANK_CHEATING',
   'OTHER',
 ] as const;
 

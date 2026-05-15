@@ -318,12 +318,14 @@ export const tr = {
     alreadyReported: 'Bu kullanıcıyı zaten rapor ettin',
     submitFailed: 'Gönderilemedi. Tekrar dene.',
     reasons: {
-      TOXICITY: 'Toksiklik',
-      AGGRESSION: 'Saldırganlık',
-      PROFANITY: 'Küfür',
-      NO_SHOW: 'Gelmedi',
-      CHEATING: 'Hile',
-      HARASSMENT: 'Taciz',
+      CHAT_SWEARING: 'Sohbette küfür',
+      CHAT_TOXICITY: 'Sohbette toksiklik',
+      CHAT_TROLLING: 'Sohbette trollük',
+      GAME_SWEARING: 'Maç içinde küfür',
+      GAME_AGGRESSION: 'Maç içinde saldırganlık',
+      GAME_INSULT: 'Maç içinde hakaret',
+      NO_SHOW: 'Maça gelmedi',
+      RANK_CHEATING: 'Sıralama hilesi',
       OTHER: 'Diğer',
     },
   },
@@ -384,3 +386,4 @@ export const tr = {
         : 'Mevki belirtilmemiş',
   },
 } as const;
+

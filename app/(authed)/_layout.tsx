@@ -91,6 +91,8 @@ export default function AuthedLayout() {
           from the tab bar via href: null; reachable via router.push from
           the matches header bell icon (Insta/Twitter pattern). */}
       <Tabs.Screen name="notifications" options={{ href: null }} />
+      {/* Public user profiles are stack-pushable detail screens, not a tab. */}
+      <Tabs.Screen name="users" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError } from '../../../../src/api/client';
@@ -413,6 +413,9 @@ export default function MatchRateScreen() {
                   vote={vote ?? null}
                   dirty={dirty}
                   disabled={disabled}
+                  onOpenProfile={() =>
+                    router.push(`/users/${player.userId}` as Href)
+                  }
                   onChange={(axis, value) =>
                     setAxisFor(player.userId, axis, value)
                   }
@@ -463,6 +466,7 @@ type RatingCardProps = {
   vote: MyRatingVote | null;
   dirty: boolean;
   disabled: boolean;
+  onOpenProfile: () => void;
   onChange: (axis: RatingAxis, value: number) => void;
 };
 
@@ -472,6 +476,7 @@ function RatingCard({
   vote,
   dirty,
   disabled,
+  onOpenProfile,
   onChange,
 }: RatingCardProps) {
   const username = player.username ?? '—';
@@ -480,7 +485,9 @@ function RatingCard({
       className={`border rounded-lg p-3 gap-3 bg-white ${
         dirty ? 'border-blue-400' : 'border-gray-200'
       }`}>
-      <View className="flex-row items-start justify-between gap-2">
+      <Pressable
+        onPress={onOpenProfile}
+        className="flex-row items-start justify-between gap-2 active:opacity-70">
         <View className="flex-1">
           <Text className="text-sm font-bold text-gray-900">{username}</Text>
           <Text className="text-xs text-gray-500">
@@ -505,7 +512,7 @@ function RatingCard({
             </View>
           ) : null}
         </View>
-      </View>
+      </Pressable>
 
       <ScorePicker
         label={tr.matchDetail.rating.performance}

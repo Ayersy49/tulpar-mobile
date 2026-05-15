@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError } from '../../../../src/api/client';
@@ -179,9 +179,15 @@ export default function ChatScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: LocalMessage }) => (
-      <MessageRow message={item} myUserId={myUserId} />
+      <MessageRow
+        message={item}
+        myUserId={myUserId}
+        onOpenProfile={(userId) =>
+          router.push(`/users/${userId}` as Href)
+        }
+      />
     ),
-    [myUserId],
+    [myUserId, router],
   );
 
   const keyExtractor = useCallback((m: LocalMessage) => m.id, []);
@@ -306,9 +312,14 @@ export default function ChatScreen() {
 type MessageRowProps = {
   message: LocalMessage;
   myUserId: string | null;
+  onOpenProfile: (userId: string) => void;
 };
 
-function MessageRow({ message, myUserId }: MessageRowProps) {
+function MessageRow({
+  message,
+  myUserId,
+  onOpenProfile,
+}: MessageRowProps) {
   if (message.isSystem) {
     return (
       <View className="items-center my-1">
@@ -333,9 +344,13 @@ function MessageRow({ message, myUserId }: MessageRowProps) {
   return (
     <View className={alignCls}>
       {!isMine && message.user.username ? (
-        <Text className="text-xs text-gray-500 mb-0.5 px-1">
-          {message.user.username}
-        </Text>
+        <Pressable
+          onPress={() => onOpenProfile(message.user.userId)}
+          className="px-1 active:opacity-60">
+          <Text className="text-xs text-gray-500 mb-0.5">
+            {message.user.username}
+          </Text>
+        </Pressable>
       ) : null}
       <View
         className={`rounded-2xl px-3 py-2 ${bubbleCls}`}

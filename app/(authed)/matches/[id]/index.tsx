@@ -136,9 +136,17 @@ type SlotProps = {
   isJoining: boolean;
   canJoin: boolean;
   onJoin: (slotId: string) => void;
+  onOpenProfile: (userId: string) => void;
 };
 
-function SlotCard({ slot, isMe, isJoining, canJoin, onJoin }: SlotProps) {
+function SlotCard({
+  slot,
+  isMe,
+  isJoining,
+  canJoin,
+  onJoin,
+  onOpenProfile,
+}: SlotProps) {
   const filled = slot.player !== null;
   const player = slot.player;
 
@@ -152,8 +160,12 @@ function SlotCard({ slot, isMe, isJoining, canJoin, onJoin }: SlotProps) {
     const containerCls = isMe
       ? 'border-2 border-blue-500 bg-blue-50'
       : 'border border-gray-300 bg-white';
+    const Content = isMe ? View : Pressable;
     return (
-      <View
+      <Content
+        {...(!isMe && isIdentified(player)
+          ? { onPress: () => onOpenProfile(player.userId) }
+          : {})}
         className={`flex-row items-center justify-between rounded-lg px-3 py-3 ${containerCls} ${reserveBorder}`}>
         <View className="flex-row items-center gap-2">
           <View className="bg-gray-200 rounded px-2 py-0.5">
@@ -170,7 +182,7 @@ function SlotCard({ slot, isMe, isJoining, canJoin, onJoin }: SlotProps) {
             </Text>
           ) : null}
         </View>
-      </View>
+      </Content>
     );
   }
 
@@ -209,6 +221,7 @@ type TeamSectionProps = {
   joiningSlotId: string | null;
   canJoin: boolean;
   onJoin: (slotId: string) => void;
+  onOpenProfile: (userId: string) => void;
 };
 
 function TeamSection({
@@ -218,6 +231,7 @@ function TeamSection({
   joiningSlotId,
   canJoin,
   onJoin,
+  onOpenProfile,
 }: TeamSectionProps) {
   const starters = slots.filter((s) => !s.isReserve);
   const reserves = slots.filter((s) => s.isReserve);
@@ -233,6 +247,7 @@ function TeamSection({
         isJoining={joiningSlotId === slot.id}
         canJoin={canJoin && slot.player === null}
         onJoin={onJoin}
+        onOpenProfile={onOpenProfile}
       />
     );
   };
@@ -747,6 +762,9 @@ export default function MatchDetailScreen() {
           joiningSlotId={joiningSlotId}
           canJoin={canJoin}
           onJoin={handleJoin}
+          onOpenProfile={(userId) =>
+            router.push(`/users/${userId}` as Href)
+          }
         />
         <TeamSection
           label={tr.matchDetail.teamB}
@@ -755,6 +773,9 @@ export default function MatchDetailScreen() {
           joiningSlotId={joiningSlotId}
           canJoin={canJoin}
           onJoin={handleJoin}
+          onOpenProfile={(userId) =>
+            router.push(`/users/${userId}` as Href)
+          }
         />
 
         {/* 2026-05-14: rating UI moved to a dedicated screen so the detail

@@ -1,4 +1,5 @@
 import { apiFetch } from './client';
+import type { Position } from './me';
 
 /**
  * Each axis is optional (2026-05-14 product call): a rater can submit "just
@@ -50,4 +51,35 @@ export function submitRating(matchId: string, payload: SubmitRatingPayload) {
 
 export function getMyRatingsForMatch(matchId: string) {
   return apiFetch<MyRatingVote[]>(`/matches/${matchId}/ratings/me`);
+}
+
+export type UserRatingPosition = {
+  position: Position;
+  avgPerformance: number | null;
+  matchCount: number;
+  raterCount: number;
+  display: number | '?';
+};
+
+export type UserRatingSportsmanship = {
+  avgRespect: number | null;
+  avgSportsmanship: number | null;
+  avgSwearing: number | null;
+  avgAggression: number | null;
+  avgPunctuality: number | null;
+  avgSiRaw: number | null;
+  siDisplay: number | null;
+  raterCount: number;
+  voteCount: number;
+  display: number | '?';
+};
+
+export type UserRatings = {
+  userId: string;
+  positions: UserRatingPosition[];
+  sportsmanship: UserRatingSportsmanship | null;
+};
+
+export function getRatingsForUser(userId: string): Promise<UserRatings> {
+  return apiFetch<UserRatings>(`/users/${userId}/ratings`);
 }

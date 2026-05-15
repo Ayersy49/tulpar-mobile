@@ -18,9 +18,11 @@ import {
   type UpdateProfilePayload,
   POSITIONS,
 } from '../../src/api/me';
+import { getRatingsForUser, type UserRatings } from '../../src/api/ratings';
 import { ApiError } from '../../src/api/client';
 import { tr } from '../../src/i18n/tr';
 import { DateTimeField } from '../../src/components/DateTimeField';
+import { RatingsCard } from '../../src/components/RatingsCard';
 
 const USERNAME_RE = /^[a-zA-Z0-9._]+$/;
 
@@ -220,6 +222,11 @@ export default function ProfileScreen() {
   const { data, error, isLoading, refetch } = useQuery<MeResponse>({
     queryKey: ['me'],
     queryFn: getMe,
+  });
+  const ratingsQuery = useQuery<UserRatings>({
+    queryKey: ['user-ratings', data?.id ?? null],
+    queryFn: () => getRatingsForUser(data!.id),
+    enabled: !!data?.id,
   });
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -436,6 +443,16 @@ export default function ProfileScreen() {
           editable={editing}
         />
         <Text className="text-xs text-gray-500">{positionsHint}</Text>
+
+        {!ratingsQuery.error ? (
+          <View className="mt-2">
+            <RatingsCard
+              ratings={ratingsQuery.data}
+              isLoading={ratingsQuery.isLoading}
+              error={null}
+            />
+          </View>
+        ) : null}
 
         {editing ? (
           <View className="flex-row gap-3 mt-2">

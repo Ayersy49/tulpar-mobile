@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   Pressable,
   RefreshControl,
@@ -9,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '../../../src/api/client';
 import { getMe, type MeResponse } from '../../../src/api/me';
 import { getPublicUser, type PublicUser } from '../../../src/api/users';
@@ -17,9 +18,17 @@ import { getRatingsForUser, type UserRatings } from '../../../src/api/ratings';
 import { RatingsCard } from '../../../src/components/RatingsCard';
 import { ReportPlayerSheet } from '../../../src/components/ReportPlayerSheet';
 import { tr } from '../../../src/i18n/tr';
+import {
+  listFriendRequests,
+  listFriends,
+  sendFriendRequest,
+  type Friend,
+  type FriendRequest,
+} from '../../../src/api/friends';
 
 export default function PublicUserProfileScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = id ?? '';
   const [reportOpen, setReportOpen] = useState(false);
@@ -42,6 +51,30 @@ export default function PublicUserProfileScreen() {
     queryKey: ['user-ratings', userId],
     queryFn: () => getRatingsForUser(userId),
     enabled: canLoadTarget,
+  });
+  const friendsQuery = useQuery<Friend[]>({
+    queryKey: ['friends'],
+    queryFn: listFriends,
+    enabled: canLoadTarget,
+  });
+  const outgoingQuery = useQuery<FriendRequest[]>({
+    queryKey: ['friend-requests', 'outgoing'],
+    queryFn: () => listFriendRequests('outgoing'),
+    enabled: canLoadTarget,
+  });
+  const incomingQuery = useQuery<FriendRequest[]>({
+    queryKey: ['friend-requests', 'incoming'],
+    queryFn: () => listFriendRequests('incoming'),
+    enabled: canLoadTarget,
+  });
+  const sendRequestMutation = useMutation({
+    mutationFn: () => sendFriendRequest(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      queryClient.invalidateQueries({ queryKey: ['friend-requests'] });
+      Alert.alert(tr.friends.requestSentSuccess);
+    },
+    onError: () => Alert.alert(tr.common.error, tr.friends.actionFailed),
   });
 
   if (isSelf) {
@@ -123,6 +156,15 @@ export default function PublicUserProfileScreen() {
   const positions = [user.position1, user.position2, user.position3].filter(
     Boolean,
   ) as string[];
+  const isFriend = friendsQuery.data?.some((friend) => friend.user.id === userId);
+  const outgoingRequest = outgoingQuery.data?.find(
+    (request) => request.otherUser.id === userId,
+  );
+  const incomingRequest = incomingQuery.data?.find(
+    (request) => request.otherUser.id === userId,
+  );
+  const friendshipQueriesLoading =
+    friendsQuery.isLoading || outgoingQuery.isLoading || incomingQuery.isLoading;
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -158,6 +200,37 @@ export default function PublicUserProfileScreen() {
           error={(ratingsQuery.error as Error | null) ?? null}
           onRetry={() => ratingsQuery.refetch()}
         />
+
+        {!friendshipQueriesLoading ? (
+          isFriend ? (
+            <View className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <Text className="text-green-800 text-center font-semibold">
+                {tr.userProfile.alreadyFriends}
+              </Text>
+            </View>
+          ) : outgoingRequest ? (
+            <View className="bg-gray-100 border border-gray-200 rounded-lg p-4">
+              <Text className="text-gray-700 text-center font-semibold">
+                {tr.userProfile.requestSent}
+              </Text>
+            </View>
+          ) : incomingRequest ? (
+            <View className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <Text className="text-blue-800 text-center font-semibold">
+                {tr.userProfile.requestReceived}
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              className="bg-blue-600 rounded-lg p-4 active:opacity-80"
+              disabled={sendRequestMutation.isPending}
+              onPress={() => sendRequestMutation.mutate()}>
+              <Text className="text-white text-center font-semibold">
+                {tr.userProfile.addFriend}
+              </Text>
+            </Pressable>
+          )
+        ) : null}
 
         <Pressable
           className="bg-red-600 rounded-lg p-4 active:opacity-80 mt-2"

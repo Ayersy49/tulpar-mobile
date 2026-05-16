@@ -50,6 +50,25 @@ export default function AuthedLayout() {
     });
   }, [accessToken, bumpUnread, queryClient]);
 
+  // Friendship WS events are hints to refresh the social graph. Keep this at
+  // layout scope so a request accepted while the user is elsewhere still
+  // updates the Friends tab and public-profile relationship state next render.
+  useEffect(() => {
+    if (!accessToken) return;
+    const invalidateFriends = () => {
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+      queryClient.invalidateQueries({ queryKey: ['friend-requests'] });
+    };
+    const cleanups = [
+      'friend:request_received',
+      'friend:request_accepted',
+      'friend:request_rejected',
+      'friend:request_cancelled',
+      'friend:removed',
+    ].map((event) => subscribeToUserEvents(event, invalidateFriends));
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, [accessToken, queryClient]);
+
   if (!accessToken) {
     return <Redirect href="/(auth)/login" />;
   }
@@ -87,10 +106,21 @@ export default function AuthedLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: tr.tabs.settings,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" size={size} color={color} />
+          ),
+        }}
+      />
       {/* Notifications lives as a stack-pushable screen, NOT a tab. Hidden
           from the tab bar via href: null; reachable via router.push from
           the matches header bell icon (Insta/Twitter pattern). */}
       <Tabs.Screen name="notifications" options={{ href: null }} />
+      {/* Friends lives as a stack-pushable social screen, not a bottom tab. */}
+      <Tabs.Screen name="friends" options={{ href: null }} />
       {/* Public user profiles are stack-pushable detail screens, not a tab. */}
       <Tabs.Screen name="users" options={{ href: null }} />
     </Tabs>

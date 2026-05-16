@@ -37,6 +37,12 @@ const NOTIFICATIONS_QUERY_KEY = ['notifications'] as const;
 // rating screen because the detail page no longer renders rating UI and the
 // match has vanished from the OPEN/LOCKED-only discoverability list.
 function routeForNotification(n: NotificationItem): Href | null {
+  if (
+    n.type === 'friend_request_received' ||
+    n.type === 'friend_request_accepted'
+  ) {
+    return '/friends' as Href;
+  }
   const matchId =
     n.data && typeof (n.data as Record<string, unknown>).matchId === 'string'
       ? ((n.data as Record<string, unknown>).matchId as string)

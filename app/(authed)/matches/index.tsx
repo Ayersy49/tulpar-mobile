@@ -150,33 +150,41 @@ export default function MatchesScreen() {
           <View className="gap-3 mb-4">
             <View className="flex-row items-center justify-between">
               <Text className="text-3xl font-bold">{tr.matches.title}</Text>
-              <Pressable
-                onPress={() => router.push('/notifications' as Href)}
-                hitSlop={8}
-                className="p-2 active:opacity-60">
-                <Ionicons
-                  name="notifications-outline"
-                  size={26}
-                  color="#1f2937"
-                />
-                {unreadCount > 0 ? (
-                  <View
-                    className="absolute bg-red-600 rounded-full"
-                    style={{
-                      top: 0,
-                      right: 0,
-                      minWidth: 18,
-                      height: 18,
-                      paddingHorizontal: 4,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                    <Text className="text-[10px] font-bold text-white">
-                      {tr.notifications.unreadBadge(unreadCount)}
-                    </Text>
-                  </View>
-                ) : null}
-              </Pressable>
+              <View className="flex-row items-center">
+                <Pressable
+                  onPress={() => router.push('/friends' as Href)}
+                  hitSlop={8}
+                  className="p-2 active:opacity-60">
+                  <Ionicons name="people-outline" size={26} color="#1f2937" />
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push('/notifications' as Href)}
+                  hitSlop={8}
+                  className="p-2 active:opacity-60">
+                  <Ionicons
+                    name="notifications-outline"
+                    size={26}
+                    color="#1f2937"
+                  />
+                  {unreadCount > 0 ? (
+                    <View
+                      className="absolute bg-red-600 rounded-full"
+                      style={{
+                        top: 0,
+                        right: 0,
+                        minWidth: 18,
+                        height: 18,
+                        paddingHorizontal: 4,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                      <Text className="text-[10px] font-bold text-white">
+                        {tr.notifications.unreadBadge(unreadCount)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              </View>
             </View>
 
             <View className="border border-gray-200 rounded-xl p-3 gap-3 bg-white">

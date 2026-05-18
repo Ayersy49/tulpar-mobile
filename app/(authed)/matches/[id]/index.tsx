@@ -33,6 +33,7 @@ import {
 } from '../../../../src/lib/socket';
 import { tr } from '../../../../src/i18n/tr';
 import { SeriesRsvpCard } from '../../../../src/components/SeriesRsvpCard';
+import { SeriesAuthoritySheet } from '../../../../src/components/SeriesAuthoritySheet';
 
 function formatScheduledAt(iso: string | null): string {
   if (!iso) return tr.matches.timeFallback;
@@ -516,6 +517,7 @@ export default function MatchDetailScreen() {
   // we never fire on initial mount (when prev is null) or on a starter join
   // (where prev was null and current is false).
   const [showPromotedToast, setShowPromotedToast] = useState(false);
+  const [authoritySheetVisible, setAuthoritySheetVisible] = useState(false);
   const prevIsReserveRef = useRef<boolean | null>(null);
 
   useEffect(() => {
@@ -690,6 +692,21 @@ export default function MatchDetailScreen() {
           />
         ) : null}
 
+        {/* Authority entry — single CTA opens the bottom sheet with all the
+            instance-level controls (skip, force-lock, reminder, list/unlist,
+            format override). Shown for series authorities during OPEN_RSVP. */}
+        {match.seriesId &&
+        match.state === 'OPEN_RSVP' &&
+        match.series?.isSeriesAuthority ? (
+          <Pressable
+            onPress={() => setAuthoritySheetVisible(true)}
+            className="self-end bg-indigo-600 px-3 py-1.5 rounded active:opacity-80">
+            <Text className="text-white text-sm font-medium">
+              {tr.seriesAuthority.manageCta}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">
             {tr.matches.formatLabel(match.format)} · {match.difficulty}
@@ -855,6 +872,16 @@ export default function MatchDetailScreen() {
           </Pressable>
         ) : null}
       </ScrollView>
+      {match.seriesId && match.series ? (
+        <SeriesAuthoritySheet
+          matchId={match.id}
+          confirms={match.series.rsvp.counts.coming}
+          isPubliclyListed={match.isPubliclyListed}
+          currentOverride={match.series.authorityFormatOverride}
+          visible={authoritySheetVisible}
+          onClose={() => setAuthoritySheetVisible(false)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

@@ -54,6 +54,41 @@ export type SeriesUpcomingMatch = {
   seriesWeekIndex: number | null;
 };
 
+export type SeriesInviteStatus =
+  | 'PENDING_AUTHORITY'
+  | 'PENDING_INVITEE'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+export type SeriesInviteKind = 'AUTHORITY_DIRECT' | 'MEMBER_SUGGESTED';
+
+export type SeriesInviteSummary = {
+  id: string;
+  status: SeriesInviteStatus;
+  kind: SeriesInviteKind;
+  notes: string | null;
+  createdAt: string;
+  inviteeUserId: string;
+  invitedByUserId: string;
+  invitee: {
+    id: string;
+    profile: {
+      username: string | null;
+      firstName: string | null;
+      lastName: string | null;
+    } | null;
+  };
+  invitedBy: {
+    id: string;
+    profile: {
+      username: string | null;
+      firstName: string | null;
+      lastName: string | null;
+    } | null;
+  };
+};
+
 export type SeriesDetail = {
   id: string;
   title: string;
@@ -73,6 +108,7 @@ export type SeriesDetail = {
   members: SeriesMemberSummary[];
   teams: SeriesTeam[];
   matches: SeriesUpcomingMatch[];
+  invites: SeriesInviteSummary[];
 };
 
 export type CreateSeriesPayload = {

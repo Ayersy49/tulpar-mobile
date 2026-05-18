@@ -432,7 +432,8 @@ export const tr = {
     statusActive: 'Aktif',
     statusPaused: 'Duraklatıldı',
     nextInstanceLabel: 'Sonraki maç',
-    noUpcoming: 'Önümüzdeki hafta için maç planlanmadı.',
+    noUpcoming:
+      'Henüz yaklaşan bir maç yok. Haftalık maçlar otomatik açılır; kısa süre içinde burada görünür.',
     upcomingHeader: 'Yaklaşan maçlar',
     weekIndex: (n: number) => `Hafta ${n}`,
     weekUnknown: 'Hafta —',

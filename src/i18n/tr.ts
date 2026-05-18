@@ -185,6 +185,7 @@ export const tr = {
     loadFailed: 'Maç yüklenemedi',
     notFound: 'Maç bulunamadı',
     back: 'Geri',
+    openSeriesChat: 'Seri sohbetini aç',
     teamA: 'Takım A',
     teamB: 'Takım B',
     starters: 'İlk 11',
@@ -435,6 +436,7 @@ export const tr = {
     noUpcoming:
       'Henüz yaklaşan bir maç yok. Haftalık maçlar otomatik açılır; kısa süre içinde burada görünür.',
     upcomingHeader: 'Yaklaşan maçlar',
+    upcomingHint: 'Detaylar ve haftalık ayarlar için maça dokun.',
     weekIndex: (n: number) => `Hafta ${n}`,
     weekUnknown: 'Hafta —',
     poolHeader: 'Havuz',

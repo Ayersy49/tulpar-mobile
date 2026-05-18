@@ -139,25 +139,31 @@ export default function SeriesDetailScreen() {
 
         {/* Upcoming instances */}
         <View className="px-4 py-3">
-          <Text className="text-sm font-semibold text-gray-700 mb-2">
+          <Text className="text-sm font-semibold text-gray-700 mb-1">
             {tr.series.upcomingHeader}
           </Text>
           {series.matches.length === 0 ? (
             <Text className="text-sm text-gray-500">{tr.series.noUpcoming}</Text>
           ) : (
-            series.matches.map((m) => (
-              <Pressable
-                key={m.id}
-                onPress={() => router.push(`/matches/${m.id}` as Href)}
-                className="px-3 py-2 bg-gray-50 rounded mb-2 active:opacity-70">
-                <Text className="text-sm font-medium">
-                  {formatInstanceLine(m.scheduledAt, m.seriesWeekIndex)}
-                </Text>
-                <Text className="text-xs text-gray-600 mt-0.5">
-                  {m.state}
-                </Text>
-              </Pressable>
-            ))
+            <>
+              <Text className="text-xs text-gray-500 italic mb-2">
+                {tr.series.upcomingHint}
+              </Text>
+              {series.matches.map((m) => (
+                <Pressable
+                  key={m.id}
+                  onPress={() => router.push(`/matches/${m.id}` as Href)}
+                  className="flex-row items-center justify-between px-3 py-2 bg-gray-50 rounded mb-2 active:opacity-70">
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium">
+                      {formatInstanceLine(m.scheduledAt, m.seriesWeekIndex)}
+                    </Text>
+                    <Text className="text-xs text-gray-600 mt-0.5">{m.state}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#6b7280" />
+                </Pressable>
+              ))}
+            </>
           )}
         </View>
 

@@ -890,6 +890,23 @@ export default function MatchDetailScreen() {
           </Pressable>
         ) : null}
 
+        {/* S1D follow-up: series instance shortcut to the pool-wide chat. Any
+            pool member can use it during OPEN_RSVP when there is no per-match
+            chat yet (slots only exist after lock). Backend gates by series
+            membership, so non-members tapping it get a clean 403 error state. */}
+        {match.seriesId ? (
+          <Pressable
+            onPress={() =>
+              router.push(`/series/${match.seriesId}/chat` as Href)
+            }
+            className="flex-row items-center justify-center gap-2 bg-white border border-indigo-500 rounded-lg p-3 mt-3 active:opacity-70">
+            <Ionicons name="chatbubbles-outline" size={18} color="#4f46e5" />
+            <Text className="text-center font-semibold text-indigo-700">
+              {tr.matchDetail.openSeriesChat}
+            </Text>
+          </Pressable>
+        ) : null}
+
         {myActiveSlot ? (
           <Pressable
             disabled={leaveMutation.isPending}

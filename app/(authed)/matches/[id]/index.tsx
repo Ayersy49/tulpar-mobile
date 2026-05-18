@@ -707,6 +707,21 @@ export default function MatchDetailScreen() {
           </Pressable>
         ) : null}
 
+        {/* Lineup edit only exists in LOCKED state — that's the window
+            between the deadline-cron lock and kickoff where slot positions
+            can still be reshuffled. */}
+        {match.seriesId &&
+        match.state === 'LOCKED' &&
+        match.series?.isSeriesAuthority ? (
+          <Pressable
+            onPress={() => router.push(`/matches/${matchId}/lineup-edit` as Href)}
+            className="self-end bg-indigo-600 px-3 py-1.5 rounded active:opacity-80">
+            <Text className="text-white text-sm font-medium">
+              {tr.seriesAuthority.lineupEditCta}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">
             {tr.matches.formatLabel(match.format)} · {match.difficulty}

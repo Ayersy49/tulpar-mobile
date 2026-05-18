@@ -20,6 +20,7 @@ import {
 import { tr } from '../../../src/i18n/tr';
 import { DateTimeField } from '../../../src/components/DateTimeField';
 import { useNotificationsStore } from '../../../src/notifications/store';
+import { SeriesBadge } from '../../../src/components/SeriesBadge';
 
 const FORMAT_OPTIONS = [5, 6, 7, 8, 9, 10, 11] as const;
 
@@ -49,14 +50,24 @@ function MatchCard({
   match: MatchSummary;
   onPress: () => void;
 }) {
+  // S1C: publicly-listed series instances get the navy accent + SERİ badge so
+  // they're distinguishable from classic ad-hoc matches at a glance.
+  const isSeriesPublic = !!match.seriesId && match.isPubliclyListed;
   return (
     <Pressable
       onPress={onPress}
-      className="border border-gray-200 rounded-xl p-4 gap-2 bg-white mb-3 active:opacity-80">
+      className={`rounded-xl p-4 gap-2 bg-white mb-3 active:opacity-80 ${
+        isSeriesPublic
+          ? 'border border-gray-200 border-l-4 border-l-blue-900'
+          : 'border border-gray-200'
+      }`}>
       <View className="flex-row items-center justify-between">
-        <Text className="text-lg font-semibold">
-          {tr.matches.formatLabel(match.format)} · {match.difficulty}
-        </Text>
+        <View className="flex-row items-center gap-2 flex-1">
+          <Text className="text-lg font-semibold">
+            {tr.matches.formatLabel(match.format)} · {match.difficulty}
+          </Text>
+          {isSeriesPublic ? <SeriesBadge /> : null}
+        </View>
         {match.isLocked ? (
           <View className="bg-yellow-100 border border-yellow-400 rounded px-2 py-0.5">
             <Text className="text-xs font-medium text-yellow-900">LOCKED</Text>

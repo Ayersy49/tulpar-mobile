@@ -17,6 +17,11 @@ export type MatchSummary = {
   capacity: number;
   filled: number;
   capacityLabel: string;
+  // S1C: classic-list rows expose the series-instance markers so the
+  // SeriesBadge (navy "SERİ") can render on publicly-listed recurring rows.
+  seriesId: string | null;
+  seriesWeekIndex: number | null;
+  isPubliclyListed: boolean;
 };
 
 export type MatchListResponse = {
@@ -111,8 +116,29 @@ export type MatchDetail = {
   // M4.B: viewer's own join-request status, embedded so the requester UI
   // can render "İstek beklemede" persistently without an extra round trip.
   myRequestStatus: MyRequestStatus;
+  // S1C: series-instance scalars. Always present; null when match is classic.
+  seriesId: string | null;
+  seriesWeekIndex: number | null;
+  isPubliclyListed: boolean;
+  outcomeSelectedUserIds: string[];
+  officialOutcome: 'A' | 'B' | 'DRAW' | null;
+  outcomeResolvedAt: string | null;
+  // S1C: rich series envelope. Populated only when seriesId !== null; lets the
+  // RSVP card, "Yönet" sheet, and OutcomeReportCard render from one round-trip.
+  series: SeriesInstanceEnvelope | null;
   teamA: MatchSlot[];
   teamB: MatchSlot[];
+};
+
+export type SeriesInstanceEnvelope = {
+  teamMode: 'MIXED' | 'FIXED' | null;
+  isSeriesAuthority: boolean;
+  authorityFormatOverride: number | null;
+  rsvp: {
+    counts: { coming: number; notComing: number; noAnswer: number };
+    myStatus: 'COMING' | 'NOT_COMING' | null;
+  };
+  myOutcomeReport: { outcome: 'A' | 'B' | 'DRAW' } | null;
 };
 
 export type MatchRequest = {

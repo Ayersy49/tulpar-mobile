@@ -32,6 +32,7 @@ import {
   subscribeToUserEvents,
 } from '../../../../src/lib/socket';
 import { tr } from '../../../../src/i18n/tr';
+import { SeriesRsvpCard } from '../../../../src/components/SeriesRsvpCard';
 
 function formatScheduledAt(iso: string | null): string {
   if (!iso) return tr.matches.timeFallback;
@@ -674,6 +675,20 @@ export default function MatchDetailScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        {/* S1C: series-instance affordances render above the classic header.
+            RSVP card is the primary CTA during OPEN_RSVP for pool members. */}
+        {match.seriesId &&
+        match.state === 'OPEN_RSVP' &&
+        match.scheduledAt &&
+        match.series ? (
+          <SeriesRsvpCard
+            matchId={match.id}
+            scheduledAt={match.scheduledAt}
+            myRsvpStatus={match.series.rsvp.myStatus}
+            counts={match.series.rsvp.counts}
+          />
+        ) : null}
 
         <View className="flex-row items-center justify-between">
           <Text className="text-2xl font-bold">

@@ -43,10 +43,44 @@ function routeForNotification(n: NotificationItem): Href | null {
   ) {
     return '/friends' as Href;
   }
-  const matchId =
-    n.data && typeof (n.data as Record<string, unknown>).matchId === 'string'
-      ? ((n.data as Record<string, unknown>).matchId as string)
-      : null;
+  const data = (n.data ?? {}) as Record<string, unknown>;
+  const seriesId =
+    typeof data.seriesId === 'string' ? data.seriesId : null;
+  const matchId = typeof data.matchId === 'string' ? data.matchId : null;
+
+  // S1C: series + outcome routes. Member-suggested invites needing approval
+  // deep-link to the pool screen so the authority can act in one tap;
+  // everything else lands on the relevant detail.
+  if (n.type === 'series_invite_needs_approval' && seriesId) {
+    return `/series/${seriesId}/pool` as Href;
+  }
+  if (
+    seriesId &&
+    (n.type === 'series_instance_spawned' ||
+      n.type === 'series_invite_received' ||
+      n.type === 'series_invite_resolved' ||
+      n.type === 'series_paused' ||
+      n.type === 'series_resumed' ||
+      n.type === 'series_edited' ||
+      n.type === 'series_skip_scheduled')
+  ) {
+    return `/series/${seriesId}` as Href;
+  }
+  if (matchId && n.type === 'series_instance_waitlisted') {
+    return `/matches/${matchId}` as Href;
+  }
+  if (
+    matchId &&
+    (n.type === 'series_rsvp_reminder' ||
+      n.type === 'series_manual_reminder' ||
+      n.type === 'series_instance_locked' ||
+      n.type === 'series_instance_cancelled' ||
+      n.type === 'match_outcome_report_request' ||
+      n.type === 'match_outcome_resolved')
+  ) {
+    return `/matches/${matchId}` as Href;
+  }
+
   if (!matchId) return null;
   if (n.type === 'match_rating_open') {
     return `/matches/${matchId}/rate` as Href;

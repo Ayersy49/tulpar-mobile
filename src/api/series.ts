@@ -44,7 +44,7 @@ export type SeriesTeam = {
   id: string;
   name: string;
   colorHex: string;
-  members: Array<{ userId: string }>;
+  members: { userId: string }[];
 };
 
 export type SeriesUpcomingMatch = {
@@ -85,7 +85,7 @@ export type CreateSeriesPayload = {
   difficulty?: string;
   pricePerPlayer?: number;
   teamMode: SeriesTeamMode;
-  teams?: Array<{ name: string; colorHex: string }>;
+  teams?: { name: string; colorHex: string }[];
 };
 
 export type UpdateSeriesPayload = Partial<

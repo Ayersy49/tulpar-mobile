@@ -69,6 +69,46 @@ export default function AuthedLayout() {
     return () => cleanups.forEach((cleanup) => cleanup());
   }, [accessToken, queryClient]);
 
+  // Phase 4 S1C: series + outcome WS events. Same WS-as-hint pattern — every
+  // event invalidates the relevant query roots and the screens refetch from
+  // the server. RSVP counts, lineup edits, public-listing toggles, format
+  // overrides, and outcome resolution all flow through here. Match and series
+  // queries are both invalidated because the events can change either side
+  // (e.g., series:listed_publicly mutates a Match row but mobile may also be
+  // viewing the parent SeriesDetail's matches list).
+  useEffect(() => {
+    if (!accessToken) return;
+    const invalidateSeries = () => {
+      queryClient.invalidateQueries({ queryKey: ['series'] });
+      queryClient.invalidateQueries({ queryKey: ['series-chat'] });
+      queryClient.invalidateQueries({ queryKey: ['match'] });
+      queryClient.invalidateQueries({ queryKey: ['matches'] });
+      queryClient.invalidateQueries({ queryKey: ['user-wdl'] });
+    };
+    const cleanups = [
+      'series:rsvp_updated',
+      'series:instance_locked',
+      'series:instance_cancelled',
+      'series:format_override_set',
+      'series:listed_publicly',
+      'series:unlisted_publicly',
+      'series:lineup_updated',
+      'series:invite_received',
+      'series:invite_needs_approval',
+      'series:invite_resolved',
+      'series:paused',
+      'series:resumed',
+      'series:skip_next_scheduled',
+      'series:member_joined',
+      'series:member_removed',
+      'series:edited',
+      'series_chat:message',
+      'match:outcome_report_request',
+      'match:outcome_resolved',
+    ].map((event) => subscribeToUserEvents(event, invalidateSeries));
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, [accessToken, queryClient]);
+
   if (!accessToken) {
     return <Redirect href="/(auth)/login" />;
   }
@@ -85,6 +125,15 @@ export default function AuthedLayout() {
           title: tr.tabs.matches,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="football-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="series"
+        options={{
+          title: tr.tabs.series,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="repeat-outline" size={size} color={color} />
           ),
         }}
       />

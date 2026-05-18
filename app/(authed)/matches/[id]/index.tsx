@@ -34,6 +34,7 @@ import {
 import { tr } from '../../../../src/i18n/tr';
 import { SeriesRsvpCard } from '../../../../src/components/SeriesRsvpCard';
 import { SeriesAuthoritySheet } from '../../../../src/components/SeriesAuthoritySheet';
+import { OutcomeReportCard } from '../../../../src/components/OutcomeReportCard';
 
 function formatScheduledAt(iso: string | null): string {
   if (!iso) return tr.matches.timeFallback;
@@ -720,6 +721,21 @@ export default function MatchDetailScreen() {
               {tr.seriesAuthority.lineupEditCta}
             </Text>
           </Pressable>
+        ) : null}
+
+        {/* W/D/L outcome prompt — only for selected reporters, only when
+            selection actually populated (V24 invariant: empty selection means
+            <2 eligible starters per team and we must not show the prompt). */}
+        {match.seriesId &&
+        match.state === 'RATING_WINDOW' &&
+        myUserId &&
+        match.outcomeSelectedUserIds.length > 0 &&
+        match.outcomeSelectedUserIds.includes(myUserId) ? (
+          <OutcomeReportCard
+            matchId={match.id}
+            alreadyReported={!!match.series?.myOutcomeReport}
+            officialOutcome={match.officialOutcome}
+          />
         ) : null}
 
         <View className="flex-row items-center justify-between">

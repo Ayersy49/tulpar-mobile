@@ -16,6 +16,7 @@ import { getMe, type MeResponse } from '../../../src/api/me';
 import { getPublicUser, type PublicUser } from '../../../src/api/users';
 import { getRatingsForUser, type UserRatings } from '../../../src/api/ratings';
 import { RatingsCard } from '../../../src/components/RatingsCard';
+import { WdlStrip } from '../../../src/components/WdlStrip';
 import { ReportPlayerSheet } from '../../../src/components/ReportPlayerSheet';
 import { tr } from '../../../src/i18n/tr';
 import {
@@ -200,6 +201,8 @@ export default function PublicUserProfileScreen() {
           error={(ratingsQuery.error as Error | null) ?? null}
           onRetry={() => ratingsQuery.refetch()}
         />
+
+        <WdlStrip userId={userId} />
 
         {!friendshipQueriesLoading ? (
           isFriend ? (

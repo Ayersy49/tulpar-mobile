@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getMe, type MeResponse } from '../../src/api/me';
 import { getRatingsForUser, type UserRatings } from '../../src/api/ratings';
 import { RatingsCard } from '../../src/components/RatingsCard';
+import { WdlStrip } from '../../src/components/WdlStrip';
 import { tr } from '../../src/i18n/tr';
 
 export default function ProfileScreen() {
@@ -79,6 +80,8 @@ export default function ProfileScreen() {
           error={(ratingsQuery.error as Error | null) ?? null}
           onRetry={() => ratingsQuery.refetch()}
         />
+
+        <WdlStrip userId={meQuery.data.id} />
 
       </ScrollView>
     </SafeAreaView>

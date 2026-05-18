@@ -539,6 +539,11 @@ export const tr = {
     listPublicly: 'Maçı listele (dışarıdan istek alsın)',
     unlistPublicly: 'Listeden kaldır',
     lineupEditCta: 'Dizilişi düzenle',
+    teamModeOverrideLabel: 'Bu hafta takım dağılımı',
+    teamModeOverrideHint:
+      'Sabit takımlar yerine bu hafta için rastgele dağıt. Sadece bu haftayı etkiler.',
+    teamModeOverrideKeepFixed: 'Sabit takımlar',
+    teamModeOverrideShuffle: 'Rastgele dağıt',
   },
   outcome: {
     cardTitle: 'Maç sonucunu bildir',

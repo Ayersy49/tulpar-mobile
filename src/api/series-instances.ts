@@ -19,6 +19,21 @@ export function setFormatOverride(matchId: string, format: number | null) {
   });
 }
 
+export type SeriesTeamMode = 'MIXED' | 'FIXED';
+
+export function setTeamModeOverride(
+  matchId: string,
+  mode: SeriesTeamMode | null,
+) {
+  // null clears any prior override; the lock cron then falls back to
+  // series.teamMode. FIXED override on a MIXED series is rejected with 400
+  // — the UI hides the picker for MIXED series to avoid the dead end.
+  return apiFetch(`/series-instances/${matchId}/team-mode-override`, {
+    method: 'POST',
+    body: { mode },
+  });
+}
+
 export function listPublicly(matchId: string) {
   return apiFetch(`/series-instances/${matchId}/list-publicly`, {
     method: 'POST',

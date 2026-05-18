@@ -5,6 +5,7 @@ import {
   listPublicly,
   sendManualReminder,
   setFormatOverride,
+  setTeamModeOverride,
   skipInstance,
   unlistPublicly,
 } from '../api/series-instances';
@@ -16,6 +17,11 @@ type Props = {
   isPubliclyListed: boolean;
   // Series-level field; null means "use the system-derived format".
   currentOverride: number | null;
+  // S1D: parent series' default team mode + this instance's override. Picker
+  // only renders when seriesTeamMode === 'FIXED' (the only direction where
+  // override is legal — MIXED→FIXED is blocked by the backend).
+  seriesTeamMode: 'MIXED' | 'FIXED' | null;
+  currentTeamModeOverride: 'MIXED' | 'FIXED' | null;
   visible: boolean;
   onClose: () => void;
 };
@@ -25,6 +31,8 @@ export function SeriesAuthoritySheet({
   confirms,
   isPubliclyListed,
   currentOverride,
+  seriesTeamMode,
+  currentTeamModeOverride,
   visible,
   onClose,
 }: Props) {
@@ -68,6 +76,12 @@ export function SeriesAuthoritySheet({
   const mutList = useMutation({
     mutationFn: () =>
       isPubliclyListed ? unlistPublicly(matchId) : listPublicly(matchId),
+    onSuccess: invalidate,
+    onError: (e: Error) => Alert.alert(tr.common.error, e.message),
+  });
+  const mutTeamMode = useMutation({
+    mutationFn: (mode: 'MIXED' | 'FIXED' | null) =>
+      setTeamModeOverride(matchId, mode),
     onSuccess: invalidate,
     onError: (e: Error) => Alert.alert(tr.common.error, e.message),
   });
@@ -196,6 +210,45 @@ export function SeriesAuthoritySheet({
                 </View>
               )}
             </View>
+
+            {seriesTeamMode === 'FIXED' ? (
+              <View className="py-3">
+                <Text className="text-sm font-medium mb-1">
+                  {tr.seriesAuthority.teamModeOverrideLabel}
+                </Text>
+                <Text className="text-xs text-gray-500 mb-2">
+                  {tr.seriesAuthority.teamModeOverrideHint}
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  <Pressable
+                    onPress={() => mutTeamMode.mutate(null)}
+                    disabled={mutTeamMode.isPending}
+                    className={`px-3 py-1.5 rounded ${currentTeamModeOverride === null ? 'bg-blue-600' : 'bg-gray-100'} active:opacity-80`}>
+                    <Text
+                      className={
+                        currentTeamModeOverride === null
+                          ? 'text-white'
+                          : 'text-gray-700'
+                      }>
+                      {tr.seriesAuthority.teamModeOverrideKeepFixed}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => mutTeamMode.mutate('MIXED')}
+                    disabled={mutTeamMode.isPending}
+                    className={`px-3 py-1.5 rounded ${currentTeamModeOverride === 'MIXED' ? 'bg-blue-600' : 'bg-gray-100'} active:opacity-80`}>
+                    <Text
+                      className={
+                        currentTeamModeOverride === 'MIXED'
+                          ? 'text-white'
+                          : 'text-gray-700'
+                      }>
+                      {tr.seriesAuthority.teamModeOverrideShuffle}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
           </ScrollView>
         </Pressable>
       </Pressable>

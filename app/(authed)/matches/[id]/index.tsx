@@ -909,6 +909,8 @@ export default function MatchDetailScreen() {
           confirms={match.series.rsvp.counts.coming}
           isPubliclyListed={match.isPubliclyListed}
           currentOverride={match.series.authorityFormatOverride}
+          seriesTeamMode={match.series.teamMode}
+          currentTeamModeOverride={match.series.teamModeOverride}
           visible={authoritySheetVisible}
           onClose={() => setAuthoritySheetVisible(false)}
         />

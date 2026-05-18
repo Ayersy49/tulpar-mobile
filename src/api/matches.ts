@@ -132,6 +132,10 @@ export type MatchDetail = {
 
 export type SeriesInstanceEnvelope = {
   teamMode: 'MIXED' | 'FIXED' | null;
+  // S1D: per-instance override of teamMode. Null means "fall back to teamMode".
+  // The authority sheet picker reads (teamModeOverride ?? teamMode) as the
+  // effective mode and only renders the picker when teamMode === 'FIXED'.
+  teamModeOverride: 'MIXED' | 'FIXED' | null;
   isSeriesAuthority: boolean;
   authorityFormatOverride: number | null;
   rsvp: {
